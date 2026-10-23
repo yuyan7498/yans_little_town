@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-sky="day">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#dce7ee">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="彥彥的小鎮：一座住著一千多位居民的小鎮，在瀏覽器裡即時過著每一天。">
+  <title>彥彥的小鎮</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2215%22%20fill%3D%22%23285742%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2245%22%20text-anchor%3D%22middle%22%20font-family%3D%22PingFang%20TC%2CMicrosoft%20JhengHei%2Csans-serif%22%20font-weight%3D%22700%22%20font-size%3D%2238%22%20fill%3D%22%23fff6d6%22%3E%E5%BD%A5%3C%2Ftext%3E%3C%2Fsvg%3E">
+  <script>
+    // Day or night colours before the first paint. The town opens where the last visit
+    // left off (src/ui/clock.js saves daySeconds under this key), at the time a test link
+    // gives, or on a first visit at data/town.js `start` (09:00). 0.625 real seconds make
+    // a town minute; the night skin is on while the sun is below half light.
+    (function () {
+      var root = document.documentElement, minute = 540;
+      try {
+        var q = new URLSearchParams(location.search);
+        if (q.has('minute') || q.has('day')) minute = Number(q.get('minute') || 540) || 0;
+        else {
+          var saved = Number(localStorage.getItem('yans-town:clock'));
+          if (saved > 0) minute = (saved / 0.625) % 1440;
+        }
+      } catch (e) { /* storage blocked: day */ }
+      var night = minute < 375 || minute >= 1140;
+      root.dataset.sky = night ? 'night' : 'day';
+      document.querySelector('meta[name="theme-color"]').content = night ? '#0b141e' : '#dce7ee';
+    })();
+  </script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+  <link rel="stylesheet" href="./styles/tokens.css">
+  <link rel="stylesheet" href="./styles/base.css">
+  <link rel="stylesheet" href="./styles/welcome.css">
+  <link rel="stylesheet" href="./styles/hud.css">
+  <link rel="stylesheet" href="./styles/panels.css">
+  <link rel="stylesheet" href="./styles/sheets.css">
+</head>
+<body>
+  <main id="stage" class="stage" aria-label="彥彥的小鎮立體場景：拖曳移動，滾輪或雙指縮放，右鍵或雙指旋轉，點建築看裡面的人">
+    <canvas id="town" class="town-canvas" tabindex="-1"></canvas>
+  </main>
+
+  <!-- The welcome card is also the loading screen. Its little town builds itself while the
+       real one loads: every moving piece is its own layer, placed in the picture's 320 × 168
+       units by --x/--y/--w/--h and animated with transform and opacity only, so it keeps
+       moving on the compositor while the main thread is busy. src/ui/welcome.js marks it
+       .is-ready (the last tower is finished, 進入小鎮 appears, the town shows through). -->
+  <div id="welcome" class="welcome">
+    <div class="welcome-bg"></div>
+    <div class="welcome-veil"></div>
+    <section class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title" aria-describedby="welcome-text">
+      <div class="welcome-art" aria-hidden="true">
+        <div class="wa-stage">
+          <svg class="wa-defs" width="0" height="0" focusable="false">
+            <defs>
+              <radialGradient id="wa-glow"><stop offset="0" class="wa-glow-in"/><stop offset="1" class="wa-glow-out"/></radialGradient>
+              <pattern id="wa-win-1" x="16" y="92" width="8" height="8" patternUnits="userSpaceOnUse"><rect x="1.5" y="1.2" width="5" height="3.6" rx=".6" class="wa-glass"/><rect x="1" y="5.4" width="6" height="1" class="wa-rail"/></pattern>
+              <pattern id="wa-win-2" x="57" y="52" width="6" height="7" patternUnits="userSpaceOnUse"><rect x="1.3" y="1.4" width="3.4" height="4" rx=".5" class="wa-glass-warm"/></pattern>
+              <pattern id="wa-win-3" x="91" y="82" width="6" height="9" patternUnits="userSpaceOnUse"><rect y="2" width="6" height="3.6" class="wa-glass"/></pattern>
+              <pattern id="wa-win-4" x="136" y="30" width="5" height="5" patternUnits="userSpaceOnUse"><rect x="1" width="3" height="4.3" class="wa-glass-blue"/></pattern>
+              <pattern id="wa-win-5" x="175" y="64" width="6" height="7" patternUnits="userSpaceOnUse"><rect x="1.3" y="1.4" width="3.4" height="4" rx=".5" class="wa-glass"/></pattern>
+              <pattern id="wa-win-7" x="257" y="72" width="6" height="7" patternUnits="userSpaceOnUse"><rect x="1.3" y="1.4" width="3.4" height="4" rx=".5" class="wa-glass-warm"/></pattern>
+              <pattern id="wa-awning" x="204" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="4" height="8" class="wa-awn-a"/><rect x="4" width="4" height="8" class="wa-awn-b"/></pattern>
+              <pattern id="wa-lattice" x="290" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" class="wa-crane-fill"/><path d="M0 0l5 5M0 5l5-5" class="wa-crane-line"/></pattern>
+              <pattern id="wa-lattice-h" x="236" y="20" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" class="wa-crane-fill"/><path d="M0 0l4 4M0 4l4-4" class="wa-crane-line"/></pattern>
+            </defs>
+          </svg>
+          <div class="wa-stars">
+            <div class="wa-l" style="--x:0;--y:0;--w:320;--h:60"><svg viewBox="0 0 320 60"><circle cx="22" cy="16" r=".9"/><circle cx="116" cy="12" r="1"/><circle cx="212" cy="30" r="1.1"/><circle cx="84" cy="56" r=".8"/></svg></div>
+            <div class="wa-l" style="--x:0;--y:0;--w:320;--h:60"><svg viewBox="0 0 320 60"><circle cx="64" cy="9" r="1.1"/><circle cx="188" cy="10" r=".9"/><circle cx="304" cy="54" r=".9"/></svg></div>
+            <div class="wa-l" style="--x:0;--y:0;--w:320;--h:60"><svg viewBox="0 0 320 60"><circle cx="98" cy="30" r=".8"/><circle cx="236" cy="8" r=".8"/><circle cx="176" cy="40" r=".7"/></svg></div>
+          </div>
+          <div class="wa-l wa-sun" style="--x:12;--y:10;--w:44;--h:44"><svg viewBox="12 10 44 44"><circle cx="34" cy="32" r="21" fill="url(#wa-glow)"/><circle cx="34" cy="32" r="10.5" class="wa-sun-disc"/><circle cx="38.5" cy="28.5" r="8.6" class="wa-moon-bite"/></svg></div>
+          <div class="wa-l wa-drift wa-drift-1" style="--x:0;--y:20;--w:320;--h:22"><svg viewBox="0 20 320 22"><path class="wa-cloud" d="M58 41a6 6 0 0 1 4-11 9 9 0 0 1 17-4 7 7 0 0 1 12 6 5 5 0 0 1 1 9z"/></svg></div>
+          <div class="wa-l wa-drift wa-drift-2" style="--x:0;--y:43;--w:320;--h:18"><svg viewBox="0 43 320 18"><path class="wa-cloud" d="M196 60a5 5 0 0 1 3-9 7 7 0 0 1 13-3 6 6 0 0 1 10 5 4 4 0 0 1 1 7z"/></svg></div>
+          <div class="wa-l wa-far" style="--x:0;--y:92;--w:320;--h:36"><svg viewBox="0 92 320 36"><path d="M0 128V110H12V102H24V112H34V96H48V106H60V100H76V110H90V94H104V104H118V98H132V108H146V92H160V102H176V96H190V108H204V100H220V106H234V94H248V104H262V98H278V110H290V100H304V108H320V128Z"/></svg></div>
+          <div class="wa-l" style="--x:0;--y:126;--w:320;--h:42"><svg viewBox="0 126 320 42"><rect class="wa-pave" y="126" width="320" height="7"/><rect class="wa-road" y="133" width="320" height="23"/><path class="wa-dash" d="M0 144.5H320"/><rect class="wa-grass" y="156" width="320" height="12"/></svg></div>
+          <div class="wa-l wa-mast" style="--x:288;--y:21;--w:9;--h:107"><svg viewBox="288 21 9 107"><rect x="290" y="22" width="5" height="106" fill="url(#wa-lattice)" class="wa-crane-frame"/><rect x="288.5" y="125.5" width="8" height="2.5" rx=".6" class="wa-steel"/></svg></div>
+          <div class="wa-l wa-jib" style="--x:235;--y:9;--w:82;--h:22"><svg viewBox="235 9 82 22"><path d="M292.5 22V10" class="wa-crane-apex"/><path d="M237 20.5L292.5 10.5L315 20.5" class="wa-crane-tie"/><rect x="236" y="20" width="80" height="4" fill="url(#wa-lattice-h)" class="wa-crane-frame"/><rect x="306" y="24" width="9" height="6" rx=".8" class="wa-steel"/><rect x="295" y="24" width="7" height="6" rx="1" class="wa-cab"/><rect x="259" y="24" width="6" height="2.5" rx=".6" class="wa-steel"/></svg></div>
+          <!-- The crane keeps lowering slabs onto the last tower until the town is ready. -->
+          <div class="wa-l wa-hook" style="--x:246;--y:26;--w:32;--h:26">
+            <div class="wa-swing">
+              <div class="wa-cable"><svg viewBox="261 26.5 2 4"><path d="M262 26.5V30.5" class="wa-cable-line"/></svg></div>
+              <div class="wa-slab"><svg viewBox="253 30.5 18 4.5"><rect x="253" y="30.5" width="18" height="4.5" rx=".8" class="wa-slab-fill"/></svg></div>
+            </div>
+          </div>
+          <div class="wa-l wa-b" style="--x:12;--y:81;--w:40;--h:47;--d:.25s"><svg viewBox="12 81 40 47"><rect x="14" y="84" width="36" height="44" class="wa-stone"/><rect x="12" y="81" width="40" height="3.5" rx="1" class="wa-stone-2"/></svg></div>
+          <div class="wa-l wa-w" style="--x:16;--y:92;--w:32;--h:32;--d:.25s"><svg viewBox="16 92 32 32"><rect x="16" y="92" width="32" height="32" fill="url(#wa-win-1)"/></svg></div>
+          <div class="wa-l wa-b" style="--x:54;--y:34;--w:30;--h:94;--d:.38s"><svg viewBox="54 34 30 94"><rect x="54" y="46" width="30" height="82" class="wa-brick"/><rect x="58" y="41" width="15" height="5" class="wa-brick-2"/><path d="M77 46V35" class="wa-pole"/></svg></div>
+          <div class="wa-l wa-w" style="--x:57;--y:52;--w:24;--h:70;--d:.38s"><svg viewBox="57 52 24 70"><rect x="57" y="52" width="24" height="70" fill="url(#wa-win-2)"/></svg></div>
+          <div class="wa-l wa-b" style="--x:88;--y:65;--w:42;--h:63;--d:.5s"><svg viewBox="88 65 42 63"><rect x="88" y="76" width="42" height="52" class="wa-mint"/><rect x="88" y="73" width="42" height="3.5" class="wa-mint-2"/><circle cx="94" cy="70.5" r="3.4" class="wa-leaf"/><circle cx="102.5" cy="69.5" r="4" class="wa-leaf-2"/><circle cx="114" cy="70.5" r="3.4" class="wa-leaf"/><circle cx="123" cy="69.5" r="4" class="wa-leaf-2"/><rect x="103" y="114" width="12" height="14" rx="1.5" class="wa-door"/></svg></div>
+          <div class="wa-l wa-w" style="--x:91;--y:82;--w:36;--h:27;--d:.5s"><svg viewBox="91 82 36 27"><rect x="91" y="82" width="36" height="27" fill="url(#wa-win-3)"/></svg></div>
+          <div class="wa-l wa-b" style="--x:134;--y:4;--w:34;--h:124;--d:.62s"><svg viewBox="134 4 34 124"><rect x="134" y="24" width="34" height="104" class="wa-blue"/><rect x="139" y="18" width="24" height="6" class="wa-blue-2"/><path d="M151 18V5" class="wa-pole"/></svg></div>
+          <div class="wa-l wa-w" style="--x:136;--y:30;--w:30;--h:90;--d:.62s"><svg viewBox="136 30 30 90"><rect x="136" y="30" width="30" height="90" fill="url(#wa-win-4)"/></svg></div>
+          <div class="wa-l wa-flag" style="--x:151;--y:5;--w:11;--h:7"><svg viewBox="151 5 11 7"><path d="M151.5 5.5h10l-2.4 3 2.4 3h-10z"/></svg></div>
+          <div class="wa-l wa-b" style="--x:172;--y:58;--w:30;--h:70;--d:.74s"><svg viewBox="172 58 30 70"><rect x="172" y="58" width="30" height="70" class="wa-stone"/><rect x="172" y="58" width="30" height="3.5" class="wa-gold"/></svg></div>
+          <div class="wa-l wa-w" style="--x:175;--y:64;--w:24;--h:56;--d:.74s"><svg viewBox="175 64 24 56"><rect x="175" y="64" width="24" height="56" fill="url(#wa-win-5)"/></svg></div>
+          <div class="wa-l wa-b" style="--x:204;--y:91;--w:48;--h:37;--d:.86s"><svg viewBox="204 91 48 37"><rect x="206" y="94" width="44" height="34" class="wa-shop"/><rect x="204" y="91" width="48" height="3.5" rx="1" class="wa-stone-2"/><rect x="204" y="108" width="48" height="6" rx="1.2" fill="url(#wa-awning)"/></svg></div>
+          <div class="wa-l wa-w" style="--x:209;--y:98;--w:38;--h:30;--d:.86s"><svg viewBox="209 98 38 30"><rect x="211" y="98.5" width="9" height="6" rx=".8" class="wa-glass"/><rect x="223.5" y="98.5" width="9" height="6" rx=".8" class="wa-glass"/><rect x="236" y="98.5" width="9" height="6" rx=".8" class="wa-glass"/><rect x="209" y="116.5" width="38" height="11.5" rx="1" class="wa-glass"/></svg></div>
+          <div class="wa-l wa-b" style="--x:254;--y:66;--w:28;--h:62;--d:.98s"><svg viewBox="254 66 28 62"><rect x="254" y="66" width="28" height="62" class="wa-brick"/></svg></div>
+          <div class="wa-l wa-w" style="--x:257;--y:72;--w:24;--h:49;--d:.98s"><svg viewBox="257 72 24 49"><rect x="257" y="72" width="24" height="49" fill="url(#wa-win-7)"/></svg></div>
+          <div class="wa-l wa-scaffold" style="--x:253.5;--y:50;--w:29;--h:16.5;--d:.98s"><svg viewBox="253.5 50 29 16.5"><path d="M254.5 66V50.5h27V66M254.5 58h27M263.5 50.5V66M272.5 50.5V66M254.5 66l9-15.5M263.5 66l9-15.5M272.5 66l9-15.5"/></svg></div>
+          <!-- The last tower's top floors, finished when the town is ready. -->
+          <div class="wa-l wa-top" style="--x:252;--y:46;--w:32;--h:20.5"><svg viewBox="252 46 32 20.5"><rect x="254" y="49.5" width="28" height="17" class="wa-brick"/><rect x="257" y="51" width="24" height="14" fill="url(#wa-win-7)"/><rect x="252" y="46.5" width="32" height="3.5" rx="1" class="wa-brick-2"/></svg></div>
+          <div class="wa-l wa-weld" style="--x:258;--y:42;--w:8;--h:8"><svg viewBox="258 42 8 8"><path d="M262 43l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg></div>
+          <div class="wa-l wa-lamps" style="--x:63;--y:107;--w:172;--h:21"><svg viewBox="63 107 172 21"><circle cx="70" cy="113.5" r="6" class="wa-lamp-glow"/><path d="M70 128v-14" class="wa-lamp-post"/><circle cx="70" cy="113.5" r="1.6" class="wa-lamp-head"/><circle cx="150" cy="113.5" r="6" class="wa-lamp-glow"/><path d="M150 128v-14" class="wa-lamp-post"/><circle cx="150" cy="113.5" r="1.6" class="wa-lamp-head"/><circle cx="228" cy="113.5" r="6" class="wa-lamp-glow"/><path d="M228 128v-14" class="wa-lamp-post"/><circle cx="228" cy="113.5" r="1.6" class="wa-lamp-head"/></svg></div>
+          <div class="wa-l wa-tree" style="--x:3.5;--y:112.5;--w:11;--h:15.5;--d:1.4s"><svg viewBox="3.5 112.5 11 15.5"><rect x="8.2" y="121" width="1.6" height="7" class="wa-trunk"/><circle cx="9" cy="118" r="5.2" class="wa-leaf"/></svg></div>
+          <div class="wa-l wa-tree" style="--x:46.5;--y:112.5;--w:11;--h:15.5;--d:1.47s"><svg viewBox="46.5 112.5 11 15.5"><rect x="51.2" y="121" width="1.6" height="7" class="wa-trunk"/><circle cx="52" cy="118.5" r="4.6" class="wa-leaf-2"/></svg></div>
+          <div class="wa-l wa-tree" style="--x:80.5;--y:112.5;--w:11;--h:15.5;--d:1.54s"><svg viewBox="80.5 112.5 11 15.5"><rect x="85.2" y="121" width="1.6" height="7" class="wa-trunk"/><circle cx="86" cy="118" r="5.2" class="wa-leaf"/></svg></div>
+          <div class="wa-l wa-tree" style="--x:125.5;--y:112.5;--w:11;--h:15.5;--d:1.61s"><svg viewBox="125.5 112.5 11 15.5"><rect x="130.2" y="121" width="1.6" height="7" class="wa-trunk"/><circle cx="131" cy="118.5" r="4.6" class="wa-leaf-2"/></svg></div>
+          <div class="wa-l wa-tree" style="--x:164.5;--y:112.5;--w:11;--h:15.5;--d:1.68s"><svg viewBox="164.5 112.5 11 15.5"><rect x="169.2" y="121" width="1.6" height="7" class="wa-trunk"/><circle cx="170" cy="118" r="5.2" class="wa-leaf"/></svg></div>
+          <div class="wa-l wa-tree" style="--x:197.5;--y:112.5;--w:11;--h:15.5;--d:1.75s"><svg viewBox="197.5 112.5 11 15.5"><rect x="202.2" y="121" width="1.6" height="7" class="wa-trunk"/><circle cx="203" cy="118.5" r="4.6" class="wa-leaf-2"/></svg></div>
+          <div class="wa-l wa-tree" style="--x:246.5;--y:112.5;--w:11;--h:15.5;--d:1.82s"><svg viewBox="246.5 112.5 11 15.5"><rect x="251.2" y="121" width="1.6" height="7" class="wa-trunk"/><circle cx="252" cy="118" r="5.2" class="wa-leaf"/></svg></div>
+          <div class="wa-l wa-taxi" style="--x:0;--y:133;--w:320;--h:12"><svg viewBox="0 133 320 12"><rect y="137" width="18" height="5" rx="1.6" class="wa-taxi-body"/><path d="M4 137l2-3.4h6.5l2.5 3.4z" class="wa-taxi-body"/><path d="M6.6 136.5l1.4-2.3h1.9v2.3zM11 136.5v-2.3h1.4l1.6 2.3z" class="wa-glass-light"/><circle cx="4.5" cy="142.4" r="1.7" class="wa-wheel"/><circle cx="13.5" cy="142.4" r="1.7" class="wa-wheel"/></svg></div>
+          <div class="wa-l wa-bus" style="--x:0;--y:140;--w:320;--h:15"><svg viewBox="0 140 320 15"><rect y="141" width="32" height="11" rx="2.2" class="wa-bus-body"/><rect x="3" y="143" width="23" height="4" rx="1" class="wa-glass-light"/><rect x="27.5" y="143" width="3" height="6" rx=".6" class="wa-glass-light"/><circle cx="7" cy="152.4" r="2.3" class="wa-wheel"/><circle cx="25" cy="152.4" r="2.3" class="wa-wheel"/></svg></div>
+          <div class="wa-l wa-spark" style="--x:136;--y:7;--w:8;--h:8;--d:2s"><svg viewBox="136 7 8 8"><path d="M140 8l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg></div>
+          <div class="wa-l wa-spark" style="--x:164;--y:13;--w:6;--h:6;--d:2.2s"><svg viewBox="164 13 6 6"><path d="M167 14l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z"/></svg></div>
+          <div class="wa-l wa-spark" style="--x:158;--y:2.5;--w:4;--h:5;--d:2.4s"><svg viewBox="158 2.5 4 5"><path d="M160 3l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/></svg></div>
+          <div class="wa-l wa-done" style="--x:246;--y:40;--w:8;--h:8;--d:0s"><svg viewBox="246 40 8 8"><path d="M250 41l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg></div>
+          <div class="wa-l wa-done" style="--x:283;--y:38;--w:6;--h:6;--d:.15s"><svg viewBox="283 38 6 6"><path d="M286 39l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z"/></svg></div>
+          <div class="wa-l wa-done" style="--x:266;--y:34.5;--w:4;--h:5;--d:.3s"><svg viewBox="266 34.5 4 5"><path d="M268 35l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/></svg></div>
+        </div>
+      </div>
+      <div class="welcome-words">
+        <h2 id="welcome-title" class="welcome-title">歡迎來到彥彥的小鎮</h2>
+        <p id="welcome-text" class="welcome-text">一千多位居民各有自己的家、工作和朋友，<br>正照著自己的行程過著每一天。</p>
+        <!-- The progress line and the button share one slot, so nothing moves when they swap. -->
+        <div class="welcome-action">
+          <div class="welcome-loading">
+            <p id="welcome-status" class="welcome-status" role="status">小鎮建造中…</p>
+            <div class="welcome-progress" aria-hidden="true"><span></span></div>
+          </div>
+          <div class="welcome-go">
+            <button id="welcome-enter" class="welcome-enter" type="button" disabled>
+              <span>進入小鎮</span>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="welcome-hint">
+          <span class="for-mouse">拖曳移動・滾輪縮放・右鍵旋轉，點建築看看裡面有誰</span>
+          <span class="for-touch">單指移動・雙指縮放旋轉，點建築看看裡面有誰</span>
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <noscript><p class="noscript">彥彥的小鎮需要開啟 JavaScript 才能看到。</p></noscript>
+
+  <script>
+    // The town's code starts after the welcome card has painted, so the card and its
+    // little town are on screen at once (a timeout inside rAF runs after that frame).
+    (function () {
+      function load() {
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = './src/main.js';
+        document.body.appendChild(s);
+      }
+      if (document.visibilityState === 'hidden') load();
+      else requestAnimationFrame(function () { setTimeout(load, 0); });
+    })();
+  </script>
+</body>
+</html>

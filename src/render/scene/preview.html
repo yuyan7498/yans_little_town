@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>場景預覽</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; background: #0e1724; overflow: hidden; font: 13px system-ui, sans-serif; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    #info { position: fixed; left: 8px; bottom: 8px; padding: 4px 8px; background: rgba(255,255,255,.8); border-radius: 6px; white-space: pre; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "../../../vendor/three/three.module.min.js", "three/addons/": "../../../vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="info"></div>
+  <script type="module">
+    import { previewPage } from './preview.js';
+    previewPage({ canvas: document.getElementById('view'), info: document.getElementById('info') }).catch(error => {
+      console.error(error);
+      document.getElementById('info').textContent = String(error);
+    });
+  </script>
+</body>
+</html>

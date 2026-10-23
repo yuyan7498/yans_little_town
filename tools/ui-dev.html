@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-sky="day">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>介面開發</title>
+  <link rel="icon" href="data:,">
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search), m = q.has('minute') ? Number(q.get('minute')) : 540;
+      document.documentElement.dataset.sky = (m < 375 || m >= 1140) ? 'night' : 'day';
+    })();
+  </script>
+  <script type="importmap">
+    { "imports": { "three": "../vendor/three/three.module.min.js", "three/addons/": "../vendor/three/addons/" } }
+  </script>
+  <link rel="stylesheet" href="../styles/tokens.css">
+  <link rel="stylesheet" href="../styles/base.css">
+  <link rel="stylesheet" href="../styles/welcome.css">
+  <link rel="stylesheet" href="../styles/hud.css">
+  <link rel="stylesheet" href="../styles/panels.css">
+  <link rel="stylesheet" href="../styles/sheets.css">
+</head>
+<body>
+  <main id="stage" class="stage"><canvas id="town" class="town-canvas" tabindex="-1"></canvas></main>
+  <div id="welcome-slot"></div>
+  <script type="module">
+    // UI dev harness: mock town facade + the real scene (massing blocks) + the real UI.
+    // ?welcome=0 skips the welcome card. window.ui / town / view are there for --eval.
+    const q = new URLSearchParams(location.search);
+    const doc = new DOMParser().parseFromString(await (await fetch('../index.html')).text(), 'text/html');
+    document.getElementById('welcome-slot').replaceWith(doc.getElementById('welcome'));
+    const { createWelcome } = await import('../src/ui/welcome.js');
+    const welcome = createWelcome();
+    const { createMockTown } = await import('../src/ui/dev/mock-town.js');
+    const { createView } = await import('../src/render/scene/index.js');
+    const { create: massing } = await import('../src/render/massing.js');
+    const { makeFrame } = await import('../src/render/frame.js');
+    const { createUI } = await import('../src/ui/index.js');
+    const town = await createMockTown();
+    const canvas = document.getElementById('town');
+    const view = createView({ canvas, world: town.world, quality: q.get('quality') === 'lite' ? 'lite' : 'full' });
+    view.add(massing({ world: town.world }));
+    const ui = createUI({ town, view, welcome });
+    Object.assign(window, { ui, town, view });
+    ui.ready();
+    if (q.get('welcome') === '0') welcome.skip();
+    let last = performance.now(), frames = 0;
+    function loop(now) {
+      const dt = (now - last) / 1000; last = now;
+      ui.update(dt);
+      view.render(makeFrame({ daySeconds: town.clock.daySeconds, time: now / 1000, dt, camera: view.camera, cameraState: ui.camera, world: town.world }));
+      if (++frames === 4) window.__ready = true;
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

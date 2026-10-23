@@ -1,0 +1,237 @@
+/* The welcome card, which is also the loading screen. The little town on it builds itself
+   while the real one loads; src/ui/welcome.js adds .is-ready (the last tower is finished,
+   進入小鎮 takes the progress line's place, the town shows through), then .is-leaving. */
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-t) + 16px) calc(var(--safe-r) + 16px) calc(var(--safe-b) + 16px) calc(var(--safe-l) + 16px);
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+.welcome.is-leaving { pointer-events: none; }
+.welcome-bg, .welcome-veil { position: fixed; inset: 0; pointer-events: none; }
+.welcome-bg {
+  background: radial-gradient(120% 90% at 50% 38%, #f6fafb 0%, #dbe7ee 68%, #c9dae4 100%);
+  transition: opacity .9s ease;
+}
+html[data-sky="night"] .welcome-bg { background: radial-gradient(120% 90% at 50% 38%, #1c2b3c 0%, #0f1a26 68%, #09111a 100%); }
+.welcome-veil {
+  background: radial-gradient(120% 90% at 50% 40%, rgba(244, 248, 250, .5), rgba(205, 221, 230, .66));
+  transition: opacity .7s ease;
+}
+html[data-sky="night"] .welcome-veil { background: radial-gradient(120% 90% at 50% 40%, rgba(20, 32, 46, .46), rgba(5, 11, 19, .7)); }
+.welcome.is-ready .welcome-bg { opacity: 0; }
+.welcome.is-ready .welcome-veil { -webkit-backdrop-filter: blur(10px) saturate(1.1); backdrop-filter: blur(10px) saturate(1.1); }
+.welcome.is-leaving .welcome-veil { opacity: 0; transition: opacity .6s ease .05s; }
+
+.welcome-card {
+  position: relative;
+  width: min(392px, 100%);
+  padding: 10px 10px 20px;
+  border-radius: var(--r-xl);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur-strong);
+  backdrop-filter: var(--blur-strong);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow-3), var(--glass-edge);
+  text-align: center;
+  transition: background-color var(--t-skin) ease;
+}
+.welcome-words { padding: 0 14px; }
+.welcome-title { margin: 20px 0 6px; font-size: 22px; line-height: 1.35; font-weight: 700; letter-spacing: .08em; }
+.welcome-text { margin: 0 0 20px; font-size: 14.5px; line-height: 1.8; letter-spacing: .04em; color: var(--ink-2); }
+.welcome-action { display: grid; min-height: 52px; }
+.welcome-action > * { grid-area: 1 / 1; }
+.welcome-loading { display: grid; place-content: center; justify-items: center; gap: 10px; transition: opacity .35s ease; }
+.welcome-status { margin: 0; font-size: 14px; letter-spacing: .16em; color: var(--ink-2); }
+.welcome-progress { width: 132px; height: 4px; border-radius: 2px; background: var(--accent-soft); overflow: hidden; }
+.welcome-progress span { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--accent); transform: translateX(-100%); }
+.welcome.is-ready .welcome-loading { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .35s ease, visibility 0s .35s; }
+.welcome.is-error .welcome-progress { display: none; }
+.welcome.is-error .welcome-status { letter-spacing: .04em; line-height: 1.6; color: var(--ink); }
+.welcome-go { opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity .5s ease, transform .6s var(--ease-spring), visibility 0s .6s; }
+.welcome.is-ready .welcome-go { opacity: 1; visibility: visible; transform: none; transition: opacity .5s ease .15s, transform .6s var(--ease-spring) .15s, visibility 0s; }
+.welcome-enter {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 52px; border: 0; border-radius: var(--r-md);
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 16px; font-weight: 700; letter-spacing: .2em;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 38%, transparent);
+  transition: transform .35s var(--ease-spring), box-shadow .3s ease, background-color .6s ease, color .6s ease;
+}
+.welcome-enter span { margin-right: -.2em; }
+.welcome-enter svg { transition: transform .35s var(--ease-spring); }
+.welcome-enter:hover { transform: translateY(-1px); box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 46%, transparent); }
+.welcome-enter:hover svg { transform: translateX(3px); }
+.welcome-enter:active { transform: scale(.97); }
+.welcome-hint { margin: 14px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); }
+.welcome-hint .for-touch { display: none; }
+@media (pointer: coarse) { .welcome-hint .for-mouse { display: none; } .welcome-hint .for-touch { display: inline; } }
+
+/* A phone on its side: the picture beside the words. */
+@media (max-height: 500px) and (min-width: 560px) {
+  .welcome-card { width: min(720px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 22px; align-items: center; padding: 10px 12px 10px 10px; text-align: left; }
+  .welcome-title { margin: 0 0 6px; font-size: 21px; }
+  .welcome-text { margin: 0 0 14px; }
+  .welcome-words { padding: 0; }
+  .welcome-loading { justify-items: start; }
+  .welcome-hint { display: none; }
+}
+@media (max-height: 500px) and (max-width: 559px) {
+  .welcome-art { aspect-ratio: 320 / 112; }
+  .welcome-title { margin-top: 12px; }
+  .welcome-text { margin-bottom: 12px; }
+  .welcome-hint { display: none; }
+}
+
+/* ---------- the little town ---------- */
+/* Every moving piece is its own layer, placed in the picture's 320 × 168 units
+   (--x/--y/--w/--h), animated only with transform and opacity so it keeps moving on the
+   compositor while the main thread builds the real town. Colours follow the town clock. */
+.welcome-art {
+  position: relative;
+  aspect-ratio: 320 / 168;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(var(--wa-sky-top), var(--wa-sky-bottom));
+  --wa-sky-top: #bfdcec; --wa-sky-bottom: #f5efe2;
+  --wa-glow-in: rgba(242, 184, 75, .45); --wa-glow-out: rgba(242, 184, 75, 0);
+  --wa-sun: #f2b84b; --wa-cloud: rgba(255, 255, 255, .92); --wa-far: #d3e0e8; --wa-star: #fff; --wa-stars: 0;
+  --wa-stone: #efe6d6; --wa-stone-2: #d8cab3; --wa-brick: #c98463; --wa-brick-2: #a9694d;
+  --wa-blue: #5d88b9; --wa-blue-2: #46709f; --wa-mint: #cfe2d2; --wa-mint-2: #b0ccb6; --wa-shop: #f4eee3; --wa-gold: #e9b44c;
+  --wa-leaf: #7fb08a; --wa-leaf-2: #5f9670; --wa-trunk: #8a6a52;
+  --wa-glass: #a8c1cf; --wa-glass-warm: #f6e4d4; --wa-glass-blue: #a9cbe9; --wa-rail: rgba(255, 255, 255, .85); --wa-door: #6f9a86;
+  --wa-pave: #e4dccd; --wa-road: #4c5a62; --wa-dash: rgba(255, 255, 255, .75); --wa-grass: #cddfc1;
+  --wa-crane: #e9b44c; --wa-crane-2: #b8862b; --wa-steel: #7f8b93; --wa-cable: #5b666d;
+  --wa-bus: #2f6b57; --wa-taxi: #f2b84b; --wa-wheel: #25313a; --wa-glass-light: #e5f1f6; --wa-awning: #fbf7ef;
+  --wa-lamp: #6b7780; --wa-lamp-head: #e8edf0; --wa-lamp-glow: rgba(255, 214, 128, 0);
+}
+html[data-sky="night"] .welcome-art {
+  --wa-sky-top: #0a1424; --wa-sky-bottom: #24344a;
+  --wa-glow-in: rgba(240, 232, 205, .28); --wa-glow-out: rgba(240, 232, 205, 0);
+  --wa-sun: #f1e9cf; --wa-cloud: rgba(170, 190, 215, .16); --wa-far: #1a283a; --wa-stars: 1;
+  --wa-stone: #8a8475; --wa-stone-2: #6d685c; --wa-brick: #7b4d3b; --wa-brick-2: #613c2e;
+  --wa-blue: #2c4766; --wa-blue-2: #22384f; --wa-mint: #627a68; --wa-mint-2: #506555; --wa-shop: #8b867b; --wa-gold: #c99a43;
+  --wa-leaf: #3e6a51; --wa-leaf-2: #325a43; --wa-trunk: #4f3d30;
+  --wa-glass: #ffd27a; --wa-glass-warm: #ffcb6b; --wa-glass-blue: #f2d593; --wa-rail: rgba(255, 255, 255, .25); --wa-door: #ffcf73;
+  --wa-pave: #3a4450; --wa-road: #1b242d; --wa-dash: rgba(255, 255, 255, .35); --wa-grass: #1f3328;
+  --wa-crane: #b98d3c; --wa-crane-2: #8a6a2c; --wa-steel: #56616a; --wa-cable: #9aa6ae;
+  --wa-bus: #3f8b70; --wa-taxi: #d9a440; --wa-wheel: #0c1218; --wa-glass-light: #ffe2a0; --wa-awning: #9a9488;
+  --wa-lamp: #56616a; --wa-lamp-head: #ffe1a0; --wa-lamp-glow: rgba(255, 214, 128, .42);
+}
+.wa-stage { position: absolute; left: 0; right: 0; bottom: 0; aspect-ratio: 320 / 168; }
+.wa-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.wa-l {
+  position: absolute;
+  left: calc(var(--x) / 320 * 100%);
+  top: calc(var(--y) / 168 * 100%);
+  width: calc(var(--w) / 320 * 100%);
+  height: calc(var(--h) / 168 * 100%);
+}
+.wa-l svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.wa-stars { position: absolute; inset: 0; opacity: var(--wa-stars); fill: var(--wa-star); transition: opacity var(--t-skin) ease; }
+.wa-glow-in { stop-color: var(--wa-glow-in); } .wa-glow-out { stop-color: var(--wa-glow-out); }
+.wa-sun-disc { fill: var(--wa-sun); } .wa-cloud { fill: var(--wa-cloud); } .wa-far svg path { fill: var(--wa-far); }
+.wa-moon-bite { fill: transparent; }
+html[data-sky="night"] .wa-moon-bite { fill: var(--wa-sky-top); }
+.wa-stone { fill: var(--wa-stone); } .wa-stone-2 { fill: var(--wa-stone-2); }
+.wa-brick { fill: var(--wa-brick); } .wa-brick-2 { fill: var(--wa-brick-2); }
+.wa-blue { fill: var(--wa-blue); } .wa-blue-2 { fill: var(--wa-blue-2); }
+.wa-mint { fill: var(--wa-mint); } .wa-mint-2 { fill: var(--wa-mint-2); }
+.wa-shop { fill: var(--wa-shop); } .wa-gold { fill: var(--wa-gold); }
+.wa-flag svg, .wa-spark svg, .wa-weld svg, .wa-done svg { fill: var(--wa-gold); }
+.wa-leaf { fill: var(--wa-leaf); } .wa-leaf-2 { fill: var(--wa-leaf-2); } .wa-trunk { fill: var(--wa-trunk); }
+.wa-glass { fill: var(--wa-glass); } .wa-glass-warm { fill: var(--wa-glass-warm); } .wa-glass-blue { fill: var(--wa-glass-blue); }
+.wa-rail { fill: var(--wa-rail); } .wa-door { fill: var(--wa-door); }
+.wa-pave { fill: var(--wa-pave); } .wa-road { fill: var(--wa-road); } .wa-grass { fill: var(--wa-grass); }
+.wa-dash { fill: none; stroke: var(--wa-dash); stroke-width: 1.2; stroke-dasharray: 8 7; }
+.wa-awn-a { fill: var(--wa-bus); } .wa-awn-b { fill: var(--wa-awning); }
+.wa-crane-fill { fill: var(--wa-crane); } .wa-crane-line { fill: none; stroke: var(--wa-crane-2); stroke-width: .6; }
+.wa-crane-frame { stroke: var(--wa-crane-2); stroke-width: .7; }
+.wa-crane-apex { fill: none; stroke: var(--wa-crane); stroke-width: 2.2; }
+.wa-crane-tie { fill: none; stroke: var(--wa-crane-2); stroke-width: .8; }
+.wa-cab { fill: var(--wa-crane-2); } .wa-steel { fill: var(--wa-steel); } .wa-slab-fill { fill: var(--wa-brick-2); }
+.wa-cable-line { fill: none; stroke: var(--wa-cable); stroke-width: .7; }
+.wa-pole { fill: none; stroke: var(--wa-steel); stroke-width: 1; stroke-linecap: round; }
+.wa-scaffold svg { fill: none; stroke: var(--wa-brick-2); stroke-width: .9; stroke-linecap: round; }
+.wa-lamp-post { fill: none; stroke: var(--wa-lamp); stroke-width: 1.1; }
+.wa-lamp-head { fill: var(--wa-lamp-head); } .wa-lamp-glow { fill: var(--wa-lamp-glow); }
+.wa-taxi-body { fill: var(--wa-taxi); } .wa-bus-body { fill: var(--wa-bus); }
+.wa-wheel { fill: var(--wa-wheel); } .wa-glass-light { fill: var(--wa-glass-light); }
+.wa-swing { position: absolute; inset: 0; transform-origin: 50% 1.92%; }
+.wa-cable { position: absolute; left: 46.875%; top: 1.923%; width: 6.25%; height: 15.385%; transform-origin: 50% 0; }
+.wa-slab { position: absolute; left: 21.875%; top: 17.308%; width: 56.25%; height: 17.308%; }
+.wa-b, .wa-tree, .wa-mast, .wa-top { transform-origin: 50% 100%; }
+.wa-flag { transform-origin: 0 50%; }
+.wa-bus { transform: translateX(14%); }
+.wa-taxi { transform: translateX(67%); }
+.wa-spark, .wa-weld, .wa-done, .wa-top { opacity: 0; }
+.wa-scaffold, .wa-hook { transition: opacity .4s ease; }
+.welcome.is-ready .wa-top { opacity: 1; }
+.welcome.is-ready .wa-scaffold, .welcome.is-ready .wa-hook { opacity: 0; }
+
+/* The loading screen's little town always plays; the rest still follows prefers-reduced-motion. */
+.welcome-card { animation: wl-card-in .75s var(--ease-spring) both; }
+.welcome.is-leaving .welcome-card { animation: wl-card-out .45s ease both; }
+.welcome-title { animation: wl-rise .6s var(--ease-out) .2s both; }
+.welcome-text { animation: wl-rise .6s var(--ease-out) .3s both; }
+.welcome-action { animation: wl-rise .6s var(--ease-out) .4s both; }
+.welcome-progress span { animation: wl-progress 1.3s ease-in-out infinite; }
+.wa-sun { animation: wa-sunrise 1.4s var(--ease-out) both; }
+.wa-far { animation: wa-fade-up .8s ease .05s both; }
+.wa-drift-1 { animation: wa-drift 13s ease-in-out infinite alternate; }
+.wa-drift-2 { animation: wa-drift 17s ease-in-out -6s infinite alternate-reverse; }
+.wa-stars > * { animation: wa-twinkle 2.4s ease-in-out infinite alternate; }
+.wa-stars > :nth-child(2) { animation-delay: -.8s; }
+.wa-stars > :nth-child(3) { animation-delay: -1.6s; }
+.wa-mast { animation: wa-rise .8s var(--ease-out) .1s both; }
+.wa-jib { animation: wa-slide-in .7s var(--ease-out) 1s both; }
+.wa-hook { animation: wa-fade .5s ease 1.4s both; }
+.wa-swing { animation: wa-swing 3.4s ease-in-out 1.4s infinite alternate both; }
+.wa-cable { animation: wa-cable 3.6s ease-in-out 1.9s infinite both; }
+.wa-slab { animation: wa-slab 3.6s ease-in-out 1.9s infinite both; }
+.wa-weld { animation: wa-weld 3.6s ease-out 1.9s infinite both; }
+.wa-b { animation: wa-rise .9s var(--ease-spring) var(--d) both; }
+.wa-w { animation: wa-fade .6s ease calc(var(--d) + .45s) both; }
+.wa-scaffold { animation: wa-fade .5s ease calc(var(--d) + .55s) both; }
+.wa-lamps { animation: wa-fade .6s ease 1.3s both; }
+.wa-tree { animation: wa-pop .6s var(--ease-spring) var(--d) both; }
+.wa-flag { animation: wa-fade .4s ease 1.4s both, wa-flag 1.3s ease-in-out 1.4s infinite alternate; }
+.wa-bus { animation: wa-drive-east 9s linear 1.9s infinite both; }
+.wa-taxi { animation: wa-drive-west 6.4s linear 2.5s infinite both; }
+.wa-spark { animation: wa-spark 3.6s ease-in-out var(--d) infinite both; }
+.welcome.is-ready .wa-scaffold { animation: wa-fade-out .5s ease both; }
+.welcome.is-ready .wa-hook { animation: wa-fade-out .45s ease both; }
+.welcome.is-ready .wa-top { animation: wa-rise .9s var(--ease-spring) .15s both; }
+.welcome.is-ready .wa-done { animation: wa-spark 1.8s ease-in-out calc(var(--d) + .6s) 2 both; }
+@keyframes wl-card-in { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes wl-card-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px) scale(.97); } }
+@keyframes wl-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes wl-progress { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@keyframes wa-sunrise { from { opacity: 0; transform: translateY(40%); } to { opacity: 1; transform: none; } }
+@keyframes wa-fade-up { from { opacity: 0; transform: translateY(16%); } to { opacity: 1; transform: none; } }
+@keyframes wa-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wa-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes wa-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes wa-pop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes wa-slide-in { from { opacity: 0; transform: translateX(18%); } to { opacity: 1; transform: none; } }
+@keyframes wa-swing { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
+@keyframes wa-cable { 0%, 85%, 100% { transform: scaleY(1); } 35%, 50% { transform: scaleY(4.75); } }
+@keyframes wa-slab {
+  0% { transform: none; opacity: 1; }
+  35%, 50% { transform: translateY(333.3%); opacity: 1; }
+  56% { transform: translateY(333.3%); opacity: 0; }
+  85% { transform: none; opacity: 0; }
+  95%, 100% { transform: none; opacity: 1; }
+}
+@keyframes wa-weld { 0%, 44%, 70%, 100% { opacity: 0; transform: scale(0); } 52% { opacity: 1; transform: scale(1.3) rotate(45deg); } }
+@keyframes wa-drift { from { transform: translateX(-3%); } to { transform: translateX(5%); } }
+@keyframes wa-flag { from { transform: none; } to { transform: scaleX(.84) skewY(-7deg); } }
+@keyframes wa-drive-east { from { transform: translateX(-12%); } to { transform: translateX(103%); } }
+@keyframes wa-drive-west { from { transform: translateX(103%); } to { transform: translateX(-7%); } }
+@keyframes wa-spark { 0%, 40%, 100% { opacity: 0; transform: scale(0); } 18% { opacity: 1; transform: scale(1.2) rotate(45deg); } }
+@keyframes wa-twinkle { from { opacity: .35; } to { opacity: 1; } }

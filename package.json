@@ -1,0 +1,15 @@
+{
+  "name": "yans-little-town",
+  "version": "2.0.0",
+  "description": "彥彥的小鎮：一座住著一千多位居民的小鎮，在瀏覽器裡即時過著每一天。",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "test": "node --test --test-reporter=spec \"test/**/*.test.js\"",
+    "check": "node tools/check-data.mjs",
+    "shot": "node tools/shot.mjs"
+  },
+  "engines": { "node": ">=22" }
+}

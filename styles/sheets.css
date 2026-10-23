@@ -1,0 +1,95 @@
+/* The 更多資訊 sheet: beside the town on wide windows, a bottom sheet on phones. */
+.info-sheet {
+  right: var(--edge-r);
+  top: calc(var(--edge-t) + var(--hud-h) + 10px);
+  bottom: var(--edge-b);
+  width: 410px;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-strong);
+  transform: translateX(24px) scale(.98);
+  transform-origin: right center;
+  transition: opacity .25s ease, transform .5s var(--ease-spring);
+  overflow: hidden;
+}
+.is-grip { display: none; }
+.is-close { position: absolute; right: 10px; top: 10px; z-index: 2; background: var(--chip); }
+.is-scroll { flex: 1; min-height: 0; padding: 22px 22px 26px; }
+.is-head { display: flex; gap: 14px; align-items: center; padding-right: 34px; }
+.is-who { min-width: 0; }
+.is-who h2 { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
+.is-job { margin: 1px 0 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.45; }
+.is-age { margin-left: 8px; color: var(--ink-3); }
+.is-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; line-height: 1.7; text-decoration: none; }
+.badge.is-owner, .badge.is-president { background: color-mix(in srgb, var(--gold) 28%, transparent); color: var(--gold-deep); }
+html[data-sky="night"] .badge.is-owner, html[data-sky="night"] .badge.is-president { color: var(--gold); }
+.is-status { display: flex; align-items: center; gap: 10px; margin: 18px 0 0; padding: 10px 14px; border-radius: var(--r-md); background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 600; line-height: 1.45; }
+.is-status .live-dot { width: 7px; height: 7px; }
+.is-status-text { min-width: 0; }
+.is-bio { margin: 16px 0 0; font-size: 14.5px; line-height: 1.85; color: var(--ink); }
+.is-bio.is-loading { display: grid; gap: 8px; }
+.is-bio.is-loading span { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--chip) 25%, var(--chip-hover) 50%, var(--chip) 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.is-bio.is-loading span:last-child { width: 60%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0 0; }
+.fact { padding: 9px 12px; border-radius: var(--r-md); background: var(--chip); border: 1px solid var(--chip-line); min-width: 0; }
+.fact:only-child, .fact:last-child:nth-child(odd) { grid-column: span 2; }
+.fact dt { font-size: 11.5px; color: var(--ink-3); letter-spacing: .06em; }
+.fact dd { margin: 1px 0 0; font-size: 14px; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
+.is-block { margin-top: 22px; }
+.is-block h3 { margin: 0 0 9px; font-size: 12.5px; font-weight: 600; letter-spacing: .14em; color: var(--ink-3); }
+.rel-group + .rel-group { margin-top: 10px; }
+.rel-group h4 { margin: 0 0 6px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
+.tag { padding: 4px 12px; border-radius: var(--r-pill); background: var(--chip); border: 1px solid var(--chip-line); font-size: 13.5px; }
+.quote { margin: 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--gold); font-size: 15px; line-height: 1.7; }
+.secret { position: relative; display: block; width: 100%; padding: 12px 14px; border: 1px dashed var(--chip-line); border-radius: var(--r-md); background: var(--chip); text-align: left; font-size: 14.5px; line-height: 1.75; }
+.secret-text { display: block; filter: blur(7px); opacity: .7; transition: filter .45s ease, opacity .45s ease; user-select: none; }
+.secret-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); transition: opacity .3s ease; }
+.secret-hint svg { width: 17px; height: 17px; }
+.secret.is-open .secret-text { filter: none; opacity: 1; user-select: text; }
+.secret.is-open .secret-hint { opacity: 0; pointer-events: none; }
+
+.timeline { position: relative; list-style: none; margin: 0; padding: 4px 4px 4px 0; max-height: 300px; border-radius: var(--r-md); }
+.tl { position: relative; display: grid; grid-template-columns: 52px 18px 1fr; align-items: start; gap: 0 6px; padding: 7px 0; }
+.tl time { font-family: var(--font-num); font-size: 13px; font-weight: 600; line-height: 1.3; text-align: right; font-variant-numeric: tabular-nums; }
+.tl time small { display: block; font-size: 11px; font-weight: 400; color: var(--ink-3); }
+.tl-dot { position: relative; justify-self: center; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--ink-3); opacity: .55; z-index: 1; }
+.tl::before { content: ''; position: absolute; left: calc(52px + 6px + 9px - 1px); top: 0; bottom: 0; width: 2px; background: var(--rule); }
+.tl:first-child::before { top: 14px; }
+.tl:last-child::before { bottom: calc(100% - 14px); }
+.tl-text { font-size: 14px; line-height: 1.5; color: var(--ink); }
+.tl.is-walk .tl-text { color: var(--ink-2); }
+.tl.is-past .tl-text, .tl.is-past time { color: var(--ink-3); }
+.tl.is-now .tl-dot { width: 13px; height: 13px; margin-top: 3px; background: var(--accent); opacity: 1; box-shadow: 0 0 0 4px var(--accent-soft); }
+.tl.is-now .tl-text { font-weight: 700; color: var(--accent); }
+.tl em { margin-left: 8px; padding: 1px 8px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 11px; font-style: normal; font-weight: 700; letter-spacing: .08em; vertical-align: 1px; }
+
+/* ---------- phones: a bottom sheet that leaves the top of the town in view ---------- */
+@media (max-width: 899px) {
+  .info-sheet {
+    left: 0; right: 0; top: auto; bottom: 0; width: auto;
+    height: 62dvh;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    border-bottom: 0;
+    transform: translateY(40px);
+    transform-origin: bottom center;
+    padding-bottom: var(--safe-b);
+  }
+  .is-grip { display: block; flex: none; width: 38px; height: 4px; margin: 9px auto 0; border-radius: 3px; background: var(--ink-3); opacity: .45; }
+  .is-scroll { padding: 14px 18px 26px; }
+  .is-close { top: 14px; }
+  .is-who h2 { font-size: 19px; }
+  .timeline { max-height: none; }
+}
+@media (max-height: 500px) and (min-width: 560px) {
+  .info-sheet { top: var(--edge-t); width: 380px; height: auto; left: auto; right: var(--edge-r); bottom: var(--edge-b); border-radius: var(--r-xl); transform: translateX(24px); padding-bottom: 0; }
+  .is-grip { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .info-sheet { transform: none !important; } .is-bio.is-loading span { animation: none; } }
+
+/* Animal residents: an emoji avatar on a soft tint, and a warm badge. */
+.avatar.is-animal { background: color-mix(in srgb, var(--tone, var(--tone-1)) 22%, var(--glass-solid)); text-shadow: none; font-size: 19px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tone, var(--tone-1)) 45%, transparent); }
+.avatar.xs.is-animal { font-size: 12px; }
+.avatar.xl.is-animal { font-size: 32px; }
+.badge.is-animal { background: color-mix(in srgb, var(--tone-1) 22%, transparent); color: var(--tone-1); }
