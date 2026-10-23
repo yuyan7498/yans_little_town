@@ -4,6 +4,8 @@
 
 **A little town of more than a thousand residents, living each day in real time in your browser.**
 
+**🔗 Live demo: <https://yuyan7498.github.io/yans_little_town/>** (nothing to install; works on phones too)
+
 Every resident has a home, a job, family and friends, and follows their own week: off to work or school in the morning, lunch at noon, the night market after work, family outings at the weekend. They walk, cycle, ride scooters, drive, take the bus or a taxi, wait at red lights, sit down to eat at the night market and go home to sleep. Tap any building to see who is inside right now; tap any resident to see their day and their relationships, and follow them wherever they go.
 
 ![The town by day](docs/images/town-day.png)
@@ -38,6 +40,8 @@ Every resident has a home, a job, family and friends, and follows their own week
 ---
 
 ## Quick start
+
+To just look around, open the [live demo](https://yuyan7498.github.io/yans_little_town/); to run or change it on your own machine:
 
 ```sh
 git clone https://github.com/yuyan7498/yans_little_town.git
