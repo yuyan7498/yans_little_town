@@ -81,7 +81,7 @@ export function createTown({ world, people, street, trips, net, loadProfiles, st
   function whereIs(id) {
     const w = street.whereIs(id);
     if (w) {
-      if (w.kind === 'aloft') return { inside: false, x: w.x, y: w.y, z: w.z, aloft: true };
+      if (w.kind === 'aloft') return { inside: false, x: w.x, y: w.y, z: w.z, aloft: true, away: !!w.away };
       const layer = w.kind === 'driving' ? 'road' : 'foot';
       return { inside: false, x: w.x, y: world.heightAt(w.x, w.z, layer), z: w.z };
     }
@@ -157,7 +157,8 @@ export function createTown({ world, people, street, trips, net, loadProfiles, st
     const people = president && aboard && aboard.kind === 'aloft' ? [{ id: president.id, role: '總統' }] : [];
     return { id: HELICOPTER, kind: 'helicopter', label: '總統專機', sub: HELICOPTER_PHASE[h.phase] || '', x: h.x, y: h.y, z: h.z, aloft: h.phase !== 'parked' && h.phase !== 'boarding' && h.phase !== 'shutdown', people };
   }
-  // The airline's planes: tapped and followed like the helicopter, the crew aboard listed.
+  // The airline's planes: tapped and followed like the helicopter, the crew aboard listed;
+  // gone (no info, so a selection lets go) once one has faded out far past the board.
   const airline = (world.config.airport && world.config.airport.airline) || '';
   const crewOf = people.crews || new Map();
   const planeTargets = new Map();
@@ -169,7 +170,7 @@ export function createTown({ world, people, street, trips, net, loadProfiles, st
   }
   function planeInfo(id) {
     const p = planesAt(world, clock.daySeconds).find(q => PLANE + q.id === id);
-    if (!p) return null;
+    if (!p || p.away) return null;
     const people = [];
     for (const rid of crewOf.keys()) {
       const w = street.whereIs(rid);
@@ -191,7 +192,7 @@ export function createTown({ world, people, street, trips, net, loadProfiles, st
       list.push(heliTarget);
     }
     for (const p of planesAt(world, clock.daySeconds)) {
-      if (p.away) continue;
+      if (p.fade < 0.35) continue;
       let t = planeTargets.get(p.id);
       if (!t) planeTargets.set(p.id, t = { key: 'v:' + PLANE + p.id, kind: 'vehicle', id: PLANE + p.id, x: 0, y: 0, z: 0, radius: 13 });
       t.x = p.x; t.y = p.y + 3; t.z = p.z;

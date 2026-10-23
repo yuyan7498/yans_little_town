@@ -164,13 +164,17 @@ size (a lot swap may put it on a lot of a different size).
 
 Amusement park, plaza with monument and fountain, sports ground, the night-market stalls (from
 `world.stalls`), the helipad and the president's helicopter, fireworks, the airship, the zoo
-with its animals, the airport with the airline's planes.
+with its animals, the airport with the airline's planes. The zoo's animals: part trees in
+`zoo-animals.js`, walks in `zoo-herd.js` (`createHerd(specs, {open, close, quality, bounds})`; walking runs on
+the town clock and stops where it is for naps and the night), specs and enclosures in `zoo.js`
+(`animalSpecs()`, `WATER`); `tools/zoo-clip.mjs` checks that no animal ever clips.
 `src/core/world/helicopter.js` (pure): `helicopterAt(world, daySeconds)` →
 `{phase:'parked'|'boarding'|'take-off'|'circuit'|'landing'|'shutdown', x, y, z, heading, bank, pitch, rotor}`
 from `data/town.js` `helicopter`.
 `src/core/world/flights.js` (pure), from `data/town.js` `airport`: `airportOf(world)` → the layout (runway,
 taxiway, links, apron, stands, terminal, tower, hangar, car park as world and plot rects); `planesAt(world, daySeconds)` →
-`[{id, name, flight, route, phase, x, y, z, heading, pitch, bank, gear, spin, speed, lights:{nav, beacon, landing, strobe}, moving, away, homeward}]`;
+`[{id, name, flight, route, phase, x, y, z, heading, pitch, bank, gear, spin, speed, lights:{nav, beacon, landing, strobe}, moving, fade, away, homeward}]` (fade: 1 … 0 as it flies off
+past the board; away: faded out);
 `flightsOn(world, day)`, `dutiesOn(world, day)` (two trips of a plane per duty, crews in turn), `crewRoster(residents)`,
 `planeOfCrew(world, crew, daySeconds)`.
 
@@ -240,7 +244,7 @@ leader?, followers?, timed }` (times in town minutes of the trip's day).
 `walkers()` → `[{ resident, point: {x, y, z, heading, stride, pose, riding?, aboard?}, trip?, stay? }]` (everyone to draw on foot, riding or seated),
 `vehicles()` → `[{ id, kind, x, y, z, heading, color }]` (everything on wheels to draw),
 `signals()` → Map id → `{phase, stage}`, `stops()`,
-`whereIs(id)` → `{kind:'street', x, z, heading, mode, phase, trip} | {kind:'seated', spot, x, z} | {kind:'driving', vehicle, x, z} | {kind:'aloft', x, y, z, plane?} | null` (null: inside per plan; aloft: the president in the helicopter, a crew in their moving plane),
+`whereIs(id)` → `{kind:'street', x, z, heading, mode, phase, trip} | {kind:'seated', spot, x, z} | {kind:'driving', vehicle, x, z} | {kind:'aloft', x, y, z, plane?, away?} | null` (null: inside per plan; aloft: the president in the helicopter, a crew in their moving plane; away: that plane has faded out),
 `vehicleInfo(id)` → `{id, kind, label, sub, x, z, people:[{id, role}]}`,
 `tapTargets()` → `[{key, kind:'person'|'vehicle', id, x, y, z, radius}]`, `info()` }.
 
@@ -253,7 +257,7 @@ town = { world, people, street,
   clock: { daySeconds, moment(), setDay(day), setMinute(minute), speed },
   residents, resident(id), job(id), relationsOf(id), profile(id) /* Promise */,
   sites /* searchable list */, site(id), presentAt(siteId) → [ids],
-  statusOf(id) → '在 鎮公所' …, whereIs(id) → {inside:true, site} | {inside:false, x, y, z, aloft?},
+  statusOf(id) → '在 鎮公所' …, whereIs(id) → {inside:true, site} | {inside:false, x, y, z, aloft?, away?},
   dayEntries(id) → [{start, end, text, walk}], facts(id) → [[label, value]],
   vehicleInfo(id) /* also 'helicopter' and 'plane:<registration>' */, tapTargets(), search(query) → {query, sites, people} /* query: name, @name, job, building */ }
 ```

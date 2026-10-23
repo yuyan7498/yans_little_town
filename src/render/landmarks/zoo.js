@@ -1,17 +1,18 @@
 // 小鎮動物園: the town zoo on two merged lots. An entrance plaza with a gate arch, ticket
 // booths, a gift shop, a snack kiosk and a map board; a looping path; enclosures for
 // elephants, giraffes (with a tall feeding platform), lions on rocks, zebras, monkeys on a
-// climbing frame, hippos, penguins and flamingos; a rest pavilion and an animal hospital.
+// climbing frame, hippos, capybaras in a warm pond and flamingos; a rest pavilion and an
+// animal hospital.
 // Everything is built in the site's local frame (+x out of the front, z along it) inside
 // one group that is rotated onto the lot, so it works on any lot of the same size.
-// The animals are in zoo-animals.js (four instanced meshes).
+// The animals are in zoo-animals.js (their shapes) and zoo-herd.js (how they move).
 
 import * as THREE from 'three';
 import { ShapeBuilder } from '../kit.js';
 import { SiteFrame } from '../buildings/a-kit.js';
 import { Glows, beam, mesh, litMaterial, setLevel, pointScale, moduleBase, lightSource, noise, smoothstep } from './common.js';
 import { lampPost, bench, shrub, planter, groundDisc, groundRing } from './props.js';
-import { createAnimals } from './zoo-animals.js';
+import { createHerd } from './zoo-herd.js';
 
 // Ground layers, each at least 0.05 above the one below it.
 const Y_GRASS = 0.22, Y_PATH = 0.31, Y_FLOOR = 0.36, Y_INLAY = 0.41, Y_INLAY2 = 0.46;
@@ -19,10 +20,10 @@ const FOLIAGE = ['#5f9a4a', '#6aa855', '#56904a', '#78b05c'];
 const LABELS = [
   ['小鎮動物園', '#1f5a52', '#ffe08a'], ['售票處', '#f4ead2', '#2a4a46'], ['紀念品店', '#f4ead2', '#8a3a2a'], ['小吃部', '#f4ead2', '#b5651d'],
   ['園區導覽圖', '#f4ead2', '#2a4a46'], ['大象', '#e6dcc4', '#3b4045'], ['長頸鹿', '#f0d98a', '#5a3a1a'], ['獅子', '#e8b860', '#5a2a10'],
-  ['斑馬', '#eeeeee', '#222428'], ['企鵝', '#bfe0ee', '#1c2a3a'], ['猴子', '#cfe0a8', '#4a3220'], ['紅鶴', '#f6c6d0', '#7a2a40'],
+  ['斑馬', '#eeeeee', '#222428'], ['卡皮巴拉', '#ead9b4', '#5a3a22'], ['猴子', '#cfe0a8', '#4a3220'], ['紅鶴', '#f6c6d0', '#7a2a40'],
   ['河馬', '#cdbfd6', '#3a2a44'], ['動物醫院', '#ffffff', '#c9483b'], ['長頸鹿餵食台', '#f0d98a', '#5a3a1a'], ['休息亭', '#f4ead2', '#2a4a46']
 ];
-const L = Object.fromEntries(['GATE', 'TICKET', 'GIFT', 'SNACK', 'MAP', 'ELE', 'GIR', 'LION', 'ZEBRA', 'PENG', 'MONK', 'FLAM', 'HIPPO', 'HOSP', 'FEED', 'REST'].map((k, i) => [k, i]));
+const L = Object.fromEntries(['GATE', 'TICKET', 'GIFT', 'SNACK', 'MAP', 'ELE', 'GIR', 'LION', 'ZEBRA', 'CAPY', 'MONK', 'FLAM', 'HIPPO', 'HOSP', 'FEED', 'REST'].map((k, i) => [k, i]));
 
 // ---------------------------------------------------------------- helpers
 const rect = (x0, x1, z0, z1) => ({ x0, x1, z0, z1, x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0 });
@@ -166,6 +167,58 @@ function plate(sb, quads, label, x, z, ry, w = 4.4, y = 2.4) {
   void nx; void nz;
 }
 
+// ---------------------------------------------------------------- the enclosures and their animals
+// Plot-local rects of the enclosures, and where each kind of animal lives.
+const ENC = {
+  ele: rect(12.5, 32.5, 18, 47), gir: rect(12.5, 32.5, -47, -18), lio: rect(-14, 4, 27, 47), mon: rect(-14, 4, 5, 24),
+  hip: rect(-14, 4, -24, -5), zeb: rect(-14, 4, -47, -27), cap: rect(14, 32, 58, 67), fla: rect(14, 32, -67, -58)
+};
+const HOME = { elephant: 'ele', giraffe: 'gir', lion: 'lio', monkey: 'mon', hippo: 'hip', zebra: 'zeb', capybara: 'cap', flamingo: 'fla' };
+const CLIMB = { x: -5, z: 14.5 };            // the monkeys' climbing frame
+// The pools' water (waders and swimmers are in it; everyone else keeps out of the pools).
+export const WATER = ['#6aa0a8', '#5a9fb2', '#6fa9a2', '#6db3c4'];
+
+// Every animal: its walk (zoo-herd.js) in plot coordinates. Nobody's walk crosses
+// anybody else's: an animal on its own has its own patch of the enclosure, and a group
+// walks one ring in file (same ring and pace, evenly spaced, resting together).
+export function animalSpecs() {
+  const S = (tpl, cx, cz, rx, rz, o = {}) => ({ tpl, enc: HOME[tpl], cx, cz, rx, rz, y0: Y_FLOOR, ...o });
+  const file = (tpl, n, cx, cz, r, o, each) => Array.from({ length: n }, (_, i) => S(tpl, cx, cz, r, r, { ...o, phase: i * Math.PI * 2 / n, ...each(i) }));
+  return [
+    // Elephants: a mother walking a ring in the south with her calf at her side (spec 0
+    // and 1), and the bull at the hay under the shelter.
+    S('elephant', 22.5, 27.6, 3, 3, { k: 0.8, w: 0.1, step: 2.6, seed: 0.3, naps: [[790, 830]] }),
+    S('elephant', 0, 0, 0, 0, { k: 0.45, follow: 0, at: [0.6, -4.5], step: 1.4, seed: 4.4, hop: 0.1 }),
+    S('elephant', 21, 42.3, 0, 0, { k: 0.8, yaw: 0, seed: 2.1, naps: [[840, 880]] }),
+    // Giraffes: one strolling the north end, one at the feeding platform, a young one browsing.
+    S('giraffe', 25.5, -25.8, 2, 1.6, { k: 0.93, w: 0.12, step: 3, seed: 1.1, naps: [[700, 730]] }),
+    S('giraffe', 28.8, -41.8, 0, 0, { k: 0.93, yaw: Math.PI, graze: 0, seed: 3.3, naps: [[900, 930]] }),
+    S('giraffe', 21, -35.5, 0, 0, { k: 0.85, yaw: 0.3, seed: 5.7, naps: [[760, 820]] }),
+    // Lions: the male on his rock, a lioness on patrol, another napping most of the day.
+    S('lion', -9.8, 44, 0, 0, { y0: Y_FLOOR + 3.4, yaw: 0, seed: 6.1, naps: [[660, 840]], opts: { mane: true } }),
+    S('lion', -3, 36.5, 3, 3, { w: 0.16, step: 2, seed: 7.3, naps: [[840, 900]], opts: { mane: false } }),
+    S('lion', -9.5, 33, 0, 0, { k: 0.9, yaw: 1.0, seed: 8.8, naps: [[600, 960]], opts: { mane: false } }),
+    // Zebras: a little herd going round together, stopping to graze together.
+    ...file('zebra', 4, -5, -35.5, 5.2, { w: 0.2, step: 2, naps: [[750, 790]] }, i => ({ seed: 9.1 + i * 1.3, k: i === 3 ? 0.85 : 1 })),
+    // Monkeys: two up on the deck, three chasing round the climbing frame.
+    S('monkey', CLIMB.x + 1.8, CLIMB.z - 1.2, 0, 0, { y0: Y_FLOOR + 5.25, yaw: 1.2, seed: 13.1, naps: [[720, 760]] }),
+    S('monkey', CLIMB.x - 1.6, CLIMB.z + 1.3, 0, 0, { y0: Y_FLOOR + 5.25, yaw: -2, seed: 14.9, naps: [[800, 840]] }),
+    ...file('monkey', 3, CLIMB.x, CLIMB.z, 6.6, { w: 0.32, step: 1.4, hop: 0.9, naps: [[780, 800]] }, i => ({ seed: 15.2 + i * 1.6, k: [1, 0.85, 0.8][i] })),
+    // Hippos: wading round their pool.
+    ...file('hippo', 2, -5, -15, 3.6, { y0: 0.1, wade: true, w: 0.07, step: 3, naps: [[720, 800]] }, i => ({ seed: 18.5 + i * 1.4, k: i ? 0.85 : 1 })),
+    // Capybaras: two on the bank (one by the greens), three soaking in the warm pond, one
+    // with a yuzu on its head; they soak on through the night.
+    S('capybara', 17, 60.4, 0, 0, { yaw: 0.15, seed: 20.3, naps: [[600, 960]] }),
+    S('capybara', 17.6, 64.6, 0, 0, { yaw: Math.PI, seed: 21.6, naps: [[720, 780]] }),
+    ...file('capybara', 3, 26, 62.5, 1.7, { y0: -0.3, swim: true, sleeps: false, w: 0.12, step: 1.4, graze: 0 }, i => ({ seed: 30 + i, opts: { yuzu: i === 0 } })),
+    // Flamingos: three wading round in file, three asleep on one leg.
+    ...file('flamingo', 3, 23, -62.75, 1.4, { k: 0.8, y0: 0.4, wade: true, w: 0.1, step: 1.5, naps: [[820, 850]] }, i => ({ seed: 40 + i })),
+    S('flamingo', 17.6, -62.6, 0, 0, { k: 0.8, y0: 0.4, wade: true, graze: 0, yaw: 0.4, seed: 43, opts: { oneLeg: true } }),
+    S('flamingo', 28.4, -60.9, 0, 0, { k: 0.8, y0: 0.4, wade: true, graze: 0, yaw: 2.6, seed: 44, opts: { oneLeg: true } }),
+    S('flamingo', 28.4, -64.6, 0, 0, { k: 0.8, y0: 0.4, wade: true, graze: 0, yaw: -2.4, seed: 45, opts: { oneLeg: true } })
+  ];
+}
+
 // ---------------------------------------------------------------- the zoo
 export function create({ world, quality = 'full' } = {}) {
   const base = moduleBase('zoo');
@@ -186,10 +239,6 @@ export function create({ world, quality = 'full' } = {}) {
     rect(-25, -20.5, -2, 2), rect(-25, -20.5, 28, 32)
   ];
   const PLAZA = rect(16, 34, -16, 16);
-  const ENC = {
-    ele: rect(12.5, 32.5, 18, 47), gir: rect(12.5, 32.5, -47, -18), lio: rect(-14, 4, 27, 47), mon: rect(-14, 4, 5, 24),
-    hip: rect(-14, 4, -24, -5), zeb: rect(-14, 4, -47, -27), pen: rect(14, 32, 58, 67), fla: rect(14, 32, -67, -58)
-  };
   const HOSP = rect(-33, -25, -9, 9), PAVI = rect(-33, -25, 26, 34);
   const keep = [...PATHS, PLAZA, ...Object.values(ENC), HOSP, PAVI];
 
@@ -198,7 +247,7 @@ export function create({ world, quality = 'full' } = {}) {
   for (const p of PATHS) flat(sb, p, Y_PATH, '#e4d8bf');
   flat(sb, PLAZA, Y_PATH, '#ecdcbc');
   groundDisc(sb, 24, 0, 7, Y_INLAY, '#f4e9cf'); groundRing(sb, 24, 0, 4.6, 5.3, Y_INLAY2, '#3f8f88'); groundRing(sb, 24, 0, 6.2, 6.8, Y_INLAY2, '#e8b24a');
-  const floors = { ele: '#d8c59c', gir: '#cbbf80', lio: '#dcc590', mon: '#94b36a', hip: '#a79a72', zeb: '#a9b666', pen: '#e4eef0', fla: '#e8d6ac' };
+  const floors = { ele: '#d8c59c', gir: '#cbbf80', lio: '#dcc590', mon: '#94b36a', hip: '#a79a72', zeb: '#a9b666', cap: '#b3b67a', fla: '#e8d6ac' };
   for (const k of Object.keys(ENC)) flat(sb, ENC[k], Y_FLOOR, floors[k]);
   flat(sb, rect(10.9, 12.3, 18.5, 46.5), Y_INLAY, '#5fa6bd');          // elephant moat
   flat(sb, rect(-13.2, 3.2, 25.2, 26.4), Y_INLAY, '#a07a50');           // keeper's lane marks (lions)
@@ -277,14 +326,14 @@ export function create({ world, quality = 'full' } = {}) {
   }
 
   // ---- enclosures
-  // Elephants: low wall with railings, a moat, a mud pool and a shelter.
+  // Elephants: low wall with railings, a moat, a mud pool and a shelter with hay.
   fence(sb, ENC.ele, { h: 2.4, wall: 1.1, bars: 2, rc: '#59606a', pc: '#59606a', sp: 3.2 });
-  pool(sb, rect(26.5, 32, 19, 25), 0.7, '#6aa0a8', '#c2b9a8');
+  pool(sb, rect(13.2, 16.8, 39.5, 46.2), 0.7, '#6aa0a8', '#c2b9a8');
   shelter(sb, 30.5, 42, 6, 7.5, 4.8, '#b8664a');
   sb.block(30.5, Y_INLAY, 42, 4.5, 0.5, 5.5, '#d4b86a');
-  rocks(sb, 16, 20.5, 1.5, 3, 4); rocks(sb, 14.5, 45, 1.2, 3, 5);
-  sb.cylinder(24, Y_FLOOR + 0.6, 44, 0.2, 0.2, 1.2, '#7a5a3d', 5);
-  sb.add(new THREE.TorusGeometry(1.1, 0.35, 5, 10), sb.transform(24, Y_FLOOR + 0.4, 44.5, [Math.PI / 2, 0, 0]), '#3b4045');
+  rocks(sb, 14.4, 19.9, 0.6, 2, 4); rocks(sb, 31.2, 19.6, 0.5, 2, 5);
+  sb.cylinder(30.6, Y_FLOOR + 0.6, 35.3, 0.2, 0.2, 1.2, '#7a5a3d', 5);
+  sb.add(new THREE.TorusGeometry(1.1, 0.35, 5, 10), sb.transform(30.6, Y_FLOOR + 0.4, 35.8, [Math.PI / 2, 0, 0]), '#3b4045');
   // Giraffes: wooden fence, feeding platform on the west side.
   const gGaps = { x0: [[-29, -26]] };
   fence(sb, ENC.gir, { h: 2.6, wall: 0, bars: 3, sp: 3 }, gGaps);
@@ -296,18 +345,17 @@ export function create({ world, quality = 'full' } = {}) {
   fence(sb, rect(12.6, 23.9, -45.4, -39.6), { y: deckTop, h: 1.3, bars: 2, sp: 2.9 }, { x0: [[-45.4, -44]], z1: [[12.6, 16.4]] });
   const nSteps = 14, tread = 12 / nSteps;
   for (let i = 0; i < nSteps; i++) sb.block(14.6, Y_FLOOR, -27.5 - (i + 0.5) * tread, 3, (i + 1) * (5.0 / nSteps), tread, i % 2 ? '#d8c8a8' : '#cdbd9a');
-  sb.block(24.5, Y_FLOOR, -42.5, 1.0, 0.9, 5.6, '#8a6b4a');
   for (let i = 0; i < 3; i++) sb.cylinder(24.3, deckTop + 0.5, -44 + i * 1.5, 0.45, 0.45, 0.5, '#6b8f3a', 6);
   quads.board(L.FEED, 17.2, deckTop + 2.1, -39.9, 4.4, 0, 0.2);
   sb.block(17.2, deckTop + 1.3, -39.9, 4.0, 1.5, 0.2, '#59606a');
-  acacia(sb, 30.5, -44, 0.9); acacia(sb, 29.5, -20.5, 0.7);
+  acacia(sb, 31.5, -46.3, 0.8); acacia(sb, 29.5, -20.5, 0.7);
   sb.block(30, Y_FLOOR, -33, 3.2, 1.8, 0.9, '#6b8f3a');     // hay racks
   rocks(sb, 21, -21, 1, 2, 6);
   // Lions: tall steel fence, a rock pile with a high ledge, rocks and a log.
   fence(sb, ENC.lio, { h: 4.2, wall: 0.9, bars: 4, rc: '#3b4045', pc: '#3b4045', wc: '#b3a999', sp: 2.4 });
-  sb.block(-10.5, Y_FLOOR, 43.5, 7, 1.8, 5, '#9a9082', 0.15); sb.block(-11.5, Y_FLOOR + 1.8, 44, 4.6, 1.6, 3.6, '#a79d8e', -0.2); sb.block(-9.0, Y_FLOOR + 3.4, 44.5, 2.2, 1.0, 2.4, '#8c8478', 0.3);
-  rocks(sb, -4, 31, 2, 3, 8); rocks(sb, 1.5, 44, 1.5, 3, 9);
-  sb.cylinder(-3, Y_FLOOR + 0.5, 40.5, 0.5, 0.5, 4.0, '#6b5240', 6, [0, 0, Math.PI / 2]);
+  sb.block(-10.5, Y_FLOOR, 43.5, 7, 1.8, 5, '#9a9082', 0.15); sb.block(-10.5, Y_FLOOR + 1.8, 44, 5.2, 1.6, 3.6, '#a79d8e', -0.2);
+  rocks(sb, 2.2, 45.2, 1, 2, 8); rocks(sb, -12.6, 28.6, 0.8, 2, 9);
+  sb.cylinder(-1.5, Y_FLOOR + 0.5, 29.2, 0.5, 0.5, 4.0, '#6b5240', 6, [0, 0, Math.PI / 2]);
   acacia(sb, 2, 29.5, 0.7);
   // Zebras.
   fence(sb, ENC.zeb, { h: 2.4, bars: 3, sp: 2.8 });
@@ -315,35 +363,36 @@ export function create({ world, quality = 'full' } = {}) {
   rocks(sb, 2.5, -29.5, 1.2, 2, 11);
   // Monkeys: mesh fence, climbing frame, deck with slide, hanging tyre.
   fence(sb, ENC.mon, { h: 4.4, bars: 4, rc: '#59606a', pc: '#59606a', sp: 2.4 });
-  const mcx = -5, mcz = 14.5;
+  const { x: mcx, z: mcz } = CLIMB;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    beam(sb, [mcx + sx * 2.5, Y_FLOOR, mcz + sz * 2.5], [mcx + sx * 2.5, Y_FLOOR + 7.6, mcz + sz * 2.5], 0.2, '#a7774f', 6);
+    beam(sb, [mcx + sx * 2.5, Y_FLOOR, mcz + sz * 2.5], [mcx + sx * 2.5, Y_FLOOR + 9.0, mcz + sz * 2.5], 0.2, '#a7774f', 6);
     beam(sb, [mcx + sx * 3.4, Y_FLOOR, mcz + sz * 3.4], [mcx + sx * 2.5, Y_FLOOR + 5.0, mcz + sz * 2.5], 0.12, '#8a6b4a', 5);
   }
   sb.block(mcx, Y_FLOOR + 4.9, mcz, 6.2, 0.35, 6.2, '#b8864f');
   for (const s of [-1, 1]) {
-    beam(sb, [mcx - 2.5, Y_FLOOR + 7.6, mcz + s * 2.5], [mcx + 2.5, Y_FLOOR + 7.6, mcz + s * 2.5], 0.16, '#a7774f', 5);
-    beam(sb, [mcx + s * 2.5, Y_FLOOR + 7.55, mcz - 2.5], [mcx + s * 2.5, Y_FLOOR + 7.55, mcz + 2.5], 0.16, '#8a6b4a', 5);
+    beam(sb, [mcx - 2.5, Y_FLOOR + 9.0, mcz + s * 2.5], [mcx + 2.5, Y_FLOOR + 9.0, mcz + s * 2.5], 0.16, '#a7774f', 5);
+    beam(sb, [mcx + s * 2.5, Y_FLOOR + 8.95, mcz - 2.5], [mcx + s * 2.5, Y_FLOOR + 8.95, mcz + 2.5], 0.16, '#8a6b4a', 5);
   }
-  beam(sb, [mcx, Y_FLOOR + 7.6, mcz - 2.5], [mcx, Y_FLOOR + 7.6, mcz + 2.5], 0.14, '#a7774f', 5);
-  for (const [dx, dz] of [[-2.7, -1.2], [-2.7, 1.2]]) beam(sb, [mcx + dx, Y_FLOOR + 5.2, mcz + dz], [mcx + dx - 2.4, Y_FLOOR + 0.2, mcz + dz], 0.07, '#c9b58a', 4);
-  sb.add(new THREE.BoxGeometry(6.4, 0.25, 1.4), sb.transform(mcx + 5.6, Y_FLOOR + 2.7, mcz + 0.0, [0, 0, -0.62]), '#3e6fa8');
-  sb.add(new THREE.BoxGeometry(6.4, 0.5, 0.2), sb.transform(mcx + 5.6, Y_FLOOR + 3.1, mcz + 0.8, [0, 0, -0.62]), '#2f5886');
-  sb.add(new THREE.BoxGeometry(6.4, 0.5, 0.2), sb.transform(mcx + 5.6, Y_FLOOR + 3.1, mcz - 0.8, [0, 0, -0.62]), '#2f5886');
-  beam(sb, [mcx, Y_FLOOR + 7.6, mcz], [mcx, Y_FLOOR + 5.7, mcz + 0.0], 0.05, '#c9b58a', 3);
+  beam(sb, [mcx, Y_FLOOR + 9.0, mcz - 2.5], [mcx, Y_FLOOR + 9.0, mcz + 2.5], 0.14, '#a7774f', 5);
+  for (const [dx, dz] of [[-2.7, -1.2], [-2.7, 1.2]]) beam(sb, [mcx + dx, Y_FLOOR + 5.2, mcz + dz], [mcx + dx - 0.9, Y_FLOOR + 0.2, mcz + dz], 0.07, '#c9b58a', 4);
+  for (const dz of [-0.6, 0.6]) beam(sb, [mcx + 2.9, Y_FLOOR, mcz + dz], [mcx + 2.9, Y_FLOOR + 4.9, mcz + dz], 0.06, '#c9b58a', 4);
+  for (let i = 1; i < 7; i++) sb.cylinder(mcx + 2.9, Y_FLOOR + i * 0.7, mcz, 0.07, 0.07, 1.2, '#a7774f', 5, [Math.PI / 2, 0, 0]);
+  beam(sb, [mcx, Y_FLOOR + 9.0, mcz], [mcx, Y_FLOOR + 5.7, mcz + 0.0], 0.05, '#c9b58a', 3);
   sb.add(new THREE.TorusGeometry(0.6, 0.2, 5, 9), sb.transform(mcx - 1.2, Y_FLOOR + 4.7, mcz + 2.5, [Math.PI / 2, 0, 0]), '#3b4045');
-  beam(sb, [mcx - 1.2, Y_FLOOR + 7.6, mcz + 2.5], [mcx - 1.2, Y_FLOOR + 5.0, mcz + 2.5], 0.05, '#c9b58a', 3);
+  beam(sb, [mcx - 1.2, Y_FLOOR + 9.0, mcz + 2.5], [mcx - 1.2, Y_FLOOR + 5.0, mcz + 2.5], 0.05, '#c9b58a', 3);
   rocks(sb, -12, 7.5, 1, 2, 12); rocks(sb, 2, 22.5, 1, 2, 13);
   // Hippos.
   fence(sb, ENC.hip, { h: 2.0, wall: 0.9, bars: 2, rc: '#59606a', pc: '#59606a', wc: '#c2b9a8', sp: 3 });
   pool(sb, rect(-12, 2, -22, -8), 0.75, '#5a9fb2', '#c2b9a8', 0.5, 1.1);
   rocks(sb, -12.5, -6.5, 1, 2, 14); rocks(sb, 2.8, -22.8, 1, 2, 15);
-  // Penguins: low glass-like wall, an ice floor and a pool.
-  fence(sb, ENC.pen, { h: 1.6, wall: 1.3, bars: 2, rc: '#59606a', pc: '#59606a', wc: '#d8e2e6', sp: 3 });
-  pool(sb, rect(21, 31, 59, 66), 0.8, '#5db7d6', '#cfdde2', 0.5, 1.3);
-  rock(sb, 15.5, Y_FLOOR - 0.1, 60, 1.6, 1.1, 1.4, '#bcc8cc', 0.4, 0.1); rock(sb, 19.6, Y_FLOOR - 0.1, 65, 1.4, 1.5, 1.4, '#a9b6bb', 1.0, 0.1);
-  rock(sb, 17, Y_FLOOR - 0.1, 65.5, 1.0, 0.9, 1.0, '#cfdadd', 2.0, 0.1);
-  sb.add(new THREE.BoxGeometry(2.4, 0.3, 1.4), sb.transform(20.4, Y_FLOOR + 0.55, 61.5, [0, 0.2, -0.3]), '#e8f2f6');
+  // Capybaras: a wooden fence on a stone kerb, a grassy bank with a tray of greens, and a
+  // warm stone-edged pond with yuzu floating in it.
+  fence(sb, ENC.cap, { h: 1.6, wall: 0.9, bars: 2, rc: '#8a6b4a', pc: '#6b5a48', wc: '#b3a999', sp: 3 });
+  pool(sb, rect(21, 31, 59, 66), 0.8, '#6fa9a2', '#b5a488', 0.5, 1.1);
+  for (const [x, z] of [[22.3, 60.2], [22.5, 65], [29.8, 60.3], [30, 64.8], [29.2, 62.4]]) sb.sphere(x, 0.84, z, 0.26, '#f0a12a', 7, 5);
+  sb.block(15.0, Y_FLOOR, 64.6, 0.9, 0.35, 2.6, '#8a6b4a');
+  for (let i = 0; i < 4; i++) sb.sphere(15.0 + (i % 2 ? 0.15 : -0.15), Y_FLOOR + 0.42, 63.7 + i * 0.6, 0.32, ['#6aa84a', '#7bbf52', '#e48a2e', '#6aa84a'][i], 6, 4, [1, 0.6, 1]);
+  rock(sb, 15.1, Y_FLOOR - 0.1, 58.9, 0.8, 0.6, 0.6, '#9a9082', 0.4, 0.1); rock(sb, 20, Y_FLOOR - 0.1, 66.4, 0.9, 0.7, 0.6, '#a79d8e', 1.0, 0.1);
   // Flamingos.
   fence(sb, ENC.fla, { h: 1.6, wall: 1.1, bars: 2, rc: '#59606a', pc: '#59606a', wc: '#d9cdb0', sp: 3 });
   pool(sb, rect(16, 30, -66, -59.5), 0.55, '#6db3c4', '#e6d3a8', 0.35, 0.7);
@@ -375,7 +424,7 @@ export function create({ world, quality = 'full' } = {}) {
   plate(sb, quads, L.ELE, 9.6, 33, -Math.PI / 2); plate(sb, quads, L.GIR, 9.6, -33, -Math.PI / 2);
   plate(sb, quads, L.LION, 4.9, 37, Math.PI / 2); plate(sb, quads, L.MONK, 4.9, 14.5, Math.PI / 2);
   plate(sb, quads, L.HIPPO, 4.9, -14.5, Math.PI / 2); plate(sb, quads, L.ZEBRA, 4.9, -37, Math.PI / 2);
-  plate(sb, quads, L.PENG, 24, 56.2, Math.PI); plate(sb, quads, L.FLAM, 24, -56.2, 0);
+  plate(sb, quads, L.CAPY, 24, 56.2, Math.PI); plate(sb, quads, L.FLAM, 24, -56.2, 0);
 
   // ---- benches, lamps, trees
   const benchSpots = [[9.6, 12, 0], [9.6, -12, 0], [9.6, 26, 0], [9.6, -26, 0], [9.6, 44, 0], [9.6, -44, 0], [-16.4, 15, Math.PI], [-16.4, -15, Math.PI], [-16.4, 35, Math.PI], [-16.4, -35, Math.PI],
@@ -417,40 +466,7 @@ export function create({ world, quality = 'full' } = {}) {
 
   // ---- animals
   const open = hours.open, close = hours.close;
-  const S = (tpl, cx, cz, rx, rz, o = {}) => ({ tpl, cx, cz, rx, rz, y0: Y_FLOOR, ...o });
-  const specs = [
-    S('elephant', 20.5, 28, 2, 3, { w: 0.14, step: 3, seed: 0.3, nap: 0.25, bed: { x: 19, z: 28, yaw: 2.6 } }),
-    S('elephant', 21, 40, 2, 2.2, { w: 0.12, step: 3, seed: 2.1, phase: 2, dir: -1, nap: 0.3 }),
-    S('elephant', 26, 32, 1.8, 1.8, { k: 0.5, w: 0.2, step: 1.6, seed: 4.4, phase: 1, nap: 0.5, hop: 0.12 }),
-    S('giraffe', 26, -28, 3, 2.5, { k: 0.93, w: 0.16, step: 3.2, seed: 1.1, nap: 0.2 }),
-    S('giraffe', 28.5, -39, 1.8, 3, { k: 0.93, w: 0.13, step: 3.2, seed: 3.3, phase: 1.5, dir: -1, nap: 0.2 }),
-    S('giraffe', 22.2, -27, 1.6, 1.6, { k: 0.85, w: 0.18, step: 2.8, seed: 5.7, phase: 3, nap: 0.35 }),
-    S('lion', -11.5, 44, 0, 0, { y0: Y_FLOOR + 3.4, yaw: -0.6, nap: 0.5, seed: 6.1, opts: { mane: true } }),
-    S('lion', -1, 36, 2.5, 3, { w: 0.2, step: 2, seed: 7.3, nap: 0.5, opts: { mane: false } }),
-    S('lion', -6, 32, 1.5, 1.5, { w: 0.22, step: 1.8, seed: 8.8, phase: 2, dir: -1, k: 0.9, nap: 0.9, opts: { mane: false } }),
-    S('zebra', -8.5, -40.5, 1.5, 2.2, { w: 0.26, step: 2, seed: 9.1, nap: 0.2 }),
-    S('zebra', -1.5, -40.5, 1.5, 2.2, { w: 0.24, step: 2, seed: 10.3, phase: 2, dir: -1, nap: 0.2 }),
-    S('zebra', -8.5, -32, 1.6, 1.6, { w: 0.28, step: 2, seed: 11.9, phase: 1, nap: 0.3 }),
-    S('zebra', -1.5, -32, 1.6, 1.6, { w: 0.22, step: 2, seed: 12.7, phase: 4, dir: -1, nap: 0.3, k: 0.85 }),
-    S('monkey', mcx + 1.8, mcz - 1.2, 0, 0, { y0: Y_FLOOR + 5.25, yaw: 1.2, seed: 13.1, nap: 0.3 }),
-    S('monkey', mcx - 1.6, mcz + 1.3, 0, 0, { y0: Y_FLOOR + 5.25, yaw: -2, seed: 14.9, nap: 0.3 }),
-    S('monkey', mcx, mcz, 6, 5.2, { w: 0.5, step: 1.4, hop: 0.9, seed: 15.2, nap: 0.1 }),
-    S('monkey', mcx, mcz, 4.5, 4.3, { w: 0.62, step: 1.4, hop: 0.9, seed: 16.8, phase: 2.5, dir: -1, nap: 0.1, k: 0.85 }),
-    S('monkey', mcx, mcz, 6, 5, { w: 0.4, step: 1.4, hop: 0.9, seed: 17.7, phase: 4.2, nap: 0.1, k: 0.8 }),
-    S('hippo', -6.5, -12.5, 1.6, 1.2, { y0: 0.1, w: 0.1, step: 3, seed: 18.5, nap: 0.4 }),
-    S('hippo', -5.5, -18, 1.8, 1.2, { y0: 0.1, w: 0.08, step: 3, seed: 19.9, phase: 2, dir: -1, nap: 0.5, k: 0.85 }),
-    ...[[17.4, 61.5, 1.4, 1.6, 0], [16.8, 64, 1.2, 1.2, 1.6], [18.5, 62.8, 1.0, 1.4, 3.1], [15.8, 62, 0.9, 1.0, 4.4]].map(([x, z, rx, rz, ph], i) =>
-      S('penguin', x, z, rx, rz, { w: 0.45 + i * 0.07, step: 0.9, waddle: 0.2, hop: 0.06, seed: 20 + i * 1.3, phase: ph, dir: i % 2 ? -1 : 1, nap: 0.3 })),
-    ...[[26, 62.5, 3.5, 2.2, 0], [26, 62.5, 3.0, 2.0, 3.2]].map(([x, z, rx, rz, ph], i) =>
-      S('penguin', x, z, rx, rz, { y0: 0.95, swim: true, w: 0.5 + i * 0.1, step: 1.5, seed: 30 + i, phase: ph, k2: 1, nap: 0 })),
-    S('flamingo', 20, -63, 1.5, 1.2, { k: 0.8, y0: 0.4, w: 0.1, step: 1.5, seed: 40, nap: 0.2 }),
-    S('flamingo', 25, -62, 1.2, 1.5, { k: 0.8, y0: 0.4, w: 0.09, step: 1.5, seed: 41, phase: 2, dir: -1, nap: 0.2 }),
-    S('flamingo', 23, -64.5, 0, 0, { k: 0.8, y0: 0.4, yaw: 0.5, seed: 42, opts: { oneLeg: true } }),
-    S('flamingo', 27.5, -61.5, 0, 0, { k: 0.8, y0: 0.4, yaw: 2.4, seed: 43, opts: { oneLeg: true } }),
-    S('flamingo', 18.5, -61, 0.8, 0.8, { k: 0.75, y0: 0.4, w: 0.12, step: 1.4, seed: 44, phase: 1 }),
-    S('flamingo', 21.5, -60.8, 0, 0, { k: 0.8, y0: 0.4, yaw: -1.2, seed: 45, opts: { oneLeg: true } })
-  ];
-  const zoo = createAnimals(specs, { open, close });
+  const zoo = createHerd(animalSpecs(), { open, close, quality, bounds: new THREE.Sphere(new THREE.Vector3(0, 6, 0), Math.hypot(A.w, A.d) / 2 + 8) });
   for (const m of zoo.meshes) group.add(m);
 
   // ---- lights (world coordinates)

@@ -91,3 +91,6 @@ paths. Budgets per module are in your brief.
   one plane where they overlap. Bands and trims stand ≥0.05 proud of the wall they wrap, signs ≥0.06
   off a wall, ground layers ≥0.03 apart (≥0.05 for big ones). Check a module with
   `node tools/shot.mjs "/tools/preview.html?m=<module>&ground=0" .shots/zf.png --eval "import('/tools/zfight.js').then(m => m.report(window.preview.scene))"`.
+- Nothing walks through anything: zoo animals keep to their own patch or walk one ring in file,
+  and lie down where they stop. `node tools/zoo-clip.mjs` must report no clipping (into each other,
+  the ground, fences, pools or props); the animal lineup is `/tools/preview.html?m=src/render/landmarks/zoo-herd.js&ground=0`.

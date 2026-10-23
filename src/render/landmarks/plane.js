@@ -3,7 +3,8 @@
 // fuselage. Forward is +x, up +y, right wing +z; the origin is on the ground under the
 // wheels. A plane is a few meshes moved by transforms: the body (static geometry), the
 // livery decal (cabin windows, name, registration), the gear (scaled to fold), two
-// propellers (spun) and a handful of light points (colours rewritten each frame).
+// propellers (spun) and a handful of light points (colours rewritten each frame). Far
+// out past the board it fades away (pose.fade), on its own materials.
 
 import * as THREE from 'three';
 import { ShapeBuilder, material } from '../kit.js';
@@ -164,16 +165,19 @@ const LIGHTS = [
 export function createPlane({ id, name, airline }, shared) {
   const group = new THREE.Group();
   group.rotation.order = 'YZX';
-  const body = mesh(shared.body, material({ roughness: 0.55, metalness: 0.08 }), { shadow: true, isStatic: false });
+  // Its own copies of the shared looks, so one plane can fade without the others.
+  const looks = [material({ roughness: 0.55, metalness: 0.08 }), material({ roughness: 0.7, metalness: 0.2 }), material({ roughness: 0.5 })].map(m => m.clone());
+  const body = mesh(shared.body, looks[0], { shadow: true, isStatic: false });
   group.add(body);
 
   const tex = liveryTextures(id, name, airline);
   const decalMaterial = new THREE.MeshStandardMaterial({ map: tex.map, emissiveMap: tex.glow, emissive: new THREE.Color('#ffd9a0'), emissiveIntensity: 0,
     transparent: true, depthWrite: false, roughness: 0.6, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const decal = new THREE.Mesh(shared.decal, decalMaterial);
+  decal.renderOrder = 1;
   group.add(decal);
 
-  const gear = mesh(shared.gear, material({ roughness: 0.7, metalness: 0.2 }), { shadow: true, isStatic: false });
+  const gear = mesh(shared.gear, looks[1], { shadow: true, isStatic: false });
   const gearGroup = new THREE.Group();
   gearGroup.position.y = GEAR_PIVOT;
   gearGroup.add(gear);
@@ -182,7 +186,7 @@ export function createPlane({ id, name, airline }, shared) {
   const props = [-1, 1].map(s => {
     const holder = new THREE.Group();
     holder.position.set(ENGINE.x + ENGINE.r * 0.9 - 0.05, ENGINE.y, s * ENGINE.z);
-    holder.add(mesh(shared.prop, material({ roughness: 0.5 }), { shadow: true, isStatic: false }));
+    holder.add(mesh(shared.prop, looks[2], { shadow: true, isStatic: false }));
     group.add(holder);
     return holder;
   });
@@ -194,11 +198,26 @@ export function createPlane({ id, name, airline }, shared) {
   group.add(points);
   const colors = points.geometry.attributes.color, base = Float32Array.from(colors.array);
 
+  // See-through only while fading (sorted with the other transparent things then).
+  let shown = 1;
+  function setFade(fade) {
+    if (fade === shown) return;
+    shown = fade;
+    const clear = fade < 1;
+    for (const m of looks) {
+      if (m.transparent !== clear) { m.transparent = clear; m.needsUpdate = true; }
+      m.opacity = fade;
+    }
+    decalMaterial.opacity = fade;
+  }
+
   let angle = 0;
   const kinds = LIGHTS.map(l => l[5]);
   function update(pose, frame, offset = 0) {
     group.visible = !pose.away;
     if (pose.away) return;
+    const fade = pose.fade === undefined ? 1 : pose.fade;
+    setFade(fade);
     const night = frame.lamps;
     group.position.set(pose.x, pose.y + 0.4, pose.z);
     group.rotation.set(pose.bank, -pose.heading, pose.pitch);
@@ -209,7 +228,7 @@ export function createPlane({ id, name, airline }, shared) {
     // Cabin lit while the plane is in service at dusk and night.
     decalMaterial.emissiveIntensity = pose.phase === 'parked' ? 0 : 0.9 * Math.min(1, night * 1.4 + 0.1);
     // Lights: steady navigation, flashing beacon and strobes, landing lights when asked.
-    const t = frame.time + offset, boost = 0.4 + 0.6 * night;
+    const t = frame.time + offset, boost = (0.4 + 0.6 * night) * fade;
     const beat = t % 1.3, strobe = beat < 0.08 || (beat > 0.2 && beat < 0.28) ? 1 : 0;
     const beacon = Math.max(0, Math.sin(t * 5.2)) ** 4;
     const L = pose.lights;
@@ -223,7 +242,7 @@ export function createPlane({ id, name, airline }, shared) {
     colors.needsUpdate = true;
     points.material.uniforms.scale.value = pointScale(frame, 1);
   }
-  return { group, update, decalMaterial, textures: tex };
+  return { group, update, decalMaterial, textures: tex, dispose() { for (const m of looks) m.dispose(); } };
 }
 
 export function sharedGeometry() {

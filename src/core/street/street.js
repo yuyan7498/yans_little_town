@@ -429,7 +429,7 @@ export function createStreet(options) {
       const m = nowAbs - (today.day - 1) * MINUTES_PER_DAY, seg = segmentNow(today.crew.get(id), m);
       if (seg && seg.activity === 'flying') {
         const p = planeOfCrew(world, crews.get(id), nowSeconds);
-        if (p) return { kind: 'aloft', x: p.x, y: p.y, z: p.z, heading: p.heading, phase: p.phase, plane: p.id };
+        if (p) return { kind: 'aloft', x: p.x, y: p.y, z: p.z, heading: p.heading, phase: p.phase, plane: p.id, away: p.away };
       }
     }
     return null;

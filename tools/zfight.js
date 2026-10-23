@@ -26,6 +26,7 @@ export function report(root, { tolerance = 0.02, minArea = 0.01, cell = 4, skip 
     const count = o.isInstancedMesh ? o.count : 1;
     for (let k = 0; k < count; k++) {
       if (o.isInstancedMesh) { o.getMatrixAt(k, _m); _m.premultiply(o.matrixWorld); } else _m.copy(o.matrixWorld);
+      const tint = o.isInstancedMesh && o.instanceColor ? '#' + new THREE.Color().fromBufferAttribute(o.instanceColor, k).getHexString() : null;
       const n = idx ? idx.count : pos.count;
       for (let i = 0; i + 2 < n; i += 3) {
         const ia = idx ? idx.getX(i) : i, ib = idx ? idx.getX(i + 1) : i + 1, ic = idx ? idx.getX(i + 2) : i + 2;
@@ -38,7 +39,7 @@ export function report(root, { tolerance = 0.02, minArea = 0.01, cell = 4, skip 
         nrm.divideScalar(area2);
         // Undersides at ground level are never seen.
         if (nrm.y < -0.7 && Math.max(_a.y, _b.y, _c.y) < 0.6) continue;
-        const colour = col ? '#' + new THREE.Color(col.getX(ia), col.getY(ia), col.getZ(ia)).getHexString() : base;
+        const colour = col ? '#' + new THREE.Color(col.getX(ia), col.getY(ia), col.getZ(ia)).getHexString() : tint || base;
         tris.push({ p: [_a.clone(), _b.clone(), _c.clone()], n: nrm, d: nrm.dot(_a), mesh: o.name || o.type, colour });
       }
     }

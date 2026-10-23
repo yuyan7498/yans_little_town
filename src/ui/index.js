@@ -167,6 +167,10 @@ export function createUI({ town, view, root = document.body, canvas = view.rende
     }
     const w = town.whereIs(follow.id);
     if (!w) return;
+    // Aboard a plane out of sight: let go once it has flown off (as for the plane itself);
+    // picked while it is away, nothing to show or follow until it is back.
+    if (w.away) { if (follow.aboard) clear(); else setMarkers(null, null); return; }
+    if (w.aloft) follow.aboard = true;
     if (w.inside) {
       setMarkers(w.site, null);
       if (follow.paused) return;

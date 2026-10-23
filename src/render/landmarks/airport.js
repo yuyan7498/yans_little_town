@@ -455,7 +455,7 @@ export function create({ world, quality = 'full' } = {}) {
       p.update(pose, frame, i * 0.37);
     });
   }
-  return { group, update, dispose: base.dispose, lights, info: () => ({ planes: state.poses.map(p => `${p.id}:${p.phase}`) }) };
+  return { group, update, dispose() { base.dispose(); planes.forEach(p => p.dispose()); }, lights, info: () => ({ planes: state.poses.map(p => `${p.id}:${p.phase}:${p.fade.toFixed(2)}`) }) };
 }
 
 export function preview(ctx) {

@@ -51,6 +51,26 @@ test('a trip runs its phases in order, rolls on the runway, leaves town and come
   assert.equal(planesAt(world, at(1, f.end + 2))[f.planeIndex].phase, 'parked');
 });
 
+test('a plane fades out gradually far past the board and fades back in on the way home', () => {
+  const f = flightsOn(world, 1)[0];
+  let prev = 1, out = null, back = null, gone = 0;
+  for (let m = f.lift; m <= f.touch; m += 0.05) {
+    const p = planesAt(world, at(1, m))[f.planeIndex];
+    assert.ok(p.fade >= 0 && p.fade <= 1);
+    assert.ok(Math.abs(p.fade - prev) < 0.02, `no sudden jump at minute ${m.toFixed(2)}`);
+    assert.equal(p.away, p.fade <= 0);
+    if (p.fade < 1 && out === null) out = m;
+    if (p.away) { gone++; back = null; } else if (gone && back === null && p.fade >= 1) back = m;
+    prev = p.fade;
+  }
+  assert.ok(gone > 0 && out !== null && back !== null);
+  // Seen at full strength over the town (the board plus a margin).
+  for (const m of [f.lift + 1, f.touch - 1]) assert.equal(planesAt(world, at(1, m))[f.planeIndex].fade, 1);
+  // The fade takes a while: several real seconds at normal speed.
+  const firstGone = (() => { for (let m = out; ; m += 0.05) if (planesAt(world, at(1, m))[f.planeIndex].away) return m; })();
+  assert.ok((firstGone - out) * SECONDS_PER_MINUTE > 5);
+});
+
 test('the same moment always gives the same pose', () => {
   const a = planesAt(world, at(3, 427.3)), b = planesAt(world, at(3, 427.3));
   assert.deepEqual(a, b);

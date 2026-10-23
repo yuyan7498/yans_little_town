@@ -42,6 +42,10 @@ export const MOTION = {
   spinUp: 3, lineUp: 2, spinDown: 3, board: 15, leave: 15, corner: 6
 };
 
+// Out past the board's edge a plane thins into the haze: whole up to `from` town units out,
+// gone at `to`.
+export const FADE = { from: 40, to: 640 };
+
 // The loop flown out of sight, in plot coordinates from the runway's centre line
 // [x, z, height]: climb straight out north, swing out behind the plot, come round and
 // line up on a long final from the south.
@@ -260,7 +264,7 @@ function planeState(A, T, i, abs, board) {
   const st = R.stand;
   const base = { id: P.id, name: P.name, index: i, flight: flight ? flight.code : null, route: flight ? flight.route : null,
     phase: 'parked', x: st.x, z: st.z, y: 0, heading: st.heading, pitch: 0, bank: 0, gear: 1, spin: 0, speed: 0,
-    lights: { nav: 0, beacon: 0, landing: 0, strobe: 0 }, moving: false, away: false, homeward: false };
+    lights: { nav: 0, beacon: 0, landing: 0, strobe: 0 }, moving: false, fade: 1, away: false, homeward: false };
   if (!flight) return finish(base, F);
   const f = flight, sec = minutes => minutes * SECONDS_PER_MINUTE;
   const spin = m < f.push ? smooth((m - f.start) / MOTION.spinUp) : m >= f.parked ? 1 - smooth((m - f.parked) / MOTION.spinDown) : 1;
@@ -305,7 +309,8 @@ function planeState(A, T, i, abs, board) {
       pitch: clamp(climb * 0.7 + 0.07 + 0.05 * smooth(1 - p.y / 10) * (u > 0.5 ? 1 : 0), -0.1, 0.26),
       bank: clamp(Math.atan(speed * speed * turn / 60), -0.5, 0.5), gear: u < 0.5 ? 1 - smooth(p.y / 30) : smooth((70 - p.y) / 25) });
     out.phase = u < 0.5 ? (p.y < 110 ? 'climb' : 'cruise') : (p.y < 110 ? 'approach' : 'cruise');
-    out.away = !insideBoard(board, out, F);
+    out.fade = fadeOf(board, out, F);
+    out.away = out.fade <= 0;
     out.homeward = u >= 0.5;
     out.lights.strobe = 1; out.lights.landing = low ? 1 : 0;
     return finish(out, F);
@@ -335,16 +340,18 @@ function finish(p, F) {
   p.x = w.x; p.z = w.z; p.heading = wrap(F.heading(p.heading));
   return p;
 }
-function insideBoard(b, p, F) {
+function fadeOf(b, p, F) {
   const w = F.toWorld(p.x, p.z);
-  return w.x > b.minX - 40 && w.x < b.maxX + 40 && w.z > b.minZ - 40 && w.z < b.maxZ + 40;
+  const out = Math.hypot(Math.max(b.minX - w.x, 0, w.x - b.maxX), Math.max(b.minZ - w.z, 0, w.z - b.maxZ));
+  return 1 - smooth((out - FADE.from) / (FADE.to - FADE.from));
 }
 
 // Every plane now: [{id, name, index, flight (code or null), route, phase, x, y, z (the point
 // under the wheels), heading, pitch (+ nose up), bank (+ right wing down), gear (0 up … 1
 // down), spin (propellers 0 … 1), speed, lights {nav, beacon, landing, strobe} (0 or 1),
-// moving, away (out past the board), homeward (on the way back)}]. Phases: parked, start-up, pushback, taxi-out,
-// line-up, take-off, climb, cruise, approach, landing, taxi-in, shutdown.
+// moving, fade (1 seen … 0 faded out, far past the board), away (faded out), homeward (on the
+// way back)}]. Phases: parked, start-up, pushback, taxi-out, line-up, take-off, climb, cruise,
+// approach, landing, taxi-in, shutdown.
 export function planesAt(world, daySeconds) {
   const A = airportOf(world), T = timetable(world);
   if (!A || !T) return [];
